@@ -12,7 +12,7 @@ export function DeleteSystemButton({ systemId, systemName }: { systemId: string;
   const [confirming, setConfirming] = useState(false);
   const [loading, setLoading] = useState(false);
   const { locale } = useLocale();
-  const i = (key: string) => td(locale, key);
+  const i = (key: string, replacements?: Record<string, string | number>) => td(locale, key, replacements);
 
   async function handleDelete() {
     setLoading(true);
