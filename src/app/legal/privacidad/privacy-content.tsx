@@ -29,7 +29,7 @@ export function PrivacyContent() {
                 <strong>audlex.com</strong>.
               </p>
               <ul className="list-disc pl-6 space-y-1 mt-2">
-                <li>Contact email: <a href="mailto:privacidad@audlex.com" className="text-brand-500 hover:underline">privacidad@audlex.com</a></li>
+                <li>Contact email: <a href="mailto:info@audlex.com" className="text-brand-500 hover:underline">info@audlex.com</a></li>
               </ul>
             </>
           ) : (
@@ -40,7 +40,7 @@ export function PrivacyContent() {
                 <strong>audlex.com</strong>.
               </p>
               <ul className="list-disc pl-6 space-y-1 mt-2">
-                <li>Correo electrónico de contacto: <a href="mailto:privacidad@audlex.com" className="text-brand-500 hover:underline">privacidad@audlex.com</a></li>
+                <li>Correo electrónico de contacto: <a href="mailto:info@audlex.com" className="text-brand-500 hover:underline">info@audlex.com</a></li>
               </ul>
             </>
           )}
@@ -220,7 +220,7 @@ export function PrivacyContent() {
               </ul>
               <p className="mt-2">
                 To exercise these rights, contact us at{" "}
-                <a href="mailto:privacidad@audlex.com" className="text-brand-500 hover:underline">privacidad@audlex.com</a>.
+                <a href="mailto:info@audlex.com" className="text-brand-500 hover:underline">info@audlex.com</a>.
                 We will respond within 30 days.
               </p>
             </>
@@ -237,7 +237,7 @@ export function PrivacyContent() {
               </ul>
               <p className="mt-2">
                 Para ejercer estos derechos, escríbenos a{" "}
-                <a href="mailto:privacidad@audlex.com" className="text-brand-500 hover:underline">privacidad@audlex.com</a>.
+                <a href="mailto:info@audlex.com" className="text-brand-500 hover:underline">info@audlex.com</a>.
                 Responderemos en un plazo máximo de 30 días.
               </p>
             </>

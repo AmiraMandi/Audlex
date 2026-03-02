@@ -12,7 +12,24 @@
 
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResend(): Resend | null {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) {
+    console.warn("[EMAIL] RESEND_API_KEY not set, emails will not be sent");
+    return null;
+  }
+  return new Resend(key);
+}
+
+/** Escape user-controlled strings before inserting into HTML emails */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 export type NotificationType = 
   | "deadline_warning"
@@ -297,16 +314,20 @@ export async function sendNotificationEmail({ to, type, data, locale = "es" }: E
 
   let { subject, html } = template;
 
-  // Replace placeholders
+  // Replace placeholders — escape user data to prevent XSS
   Object.entries(data).forEach(([key, value]) => {
     const placeholder = `{${key}}`;
-    subject = subject.replace(new RegExp(placeholder, "g"), String(value));
-    html = html.replace(new RegExp(placeholder, "g"), String(value));
+    const safe = escapeHtml(String(value));
+    subject = subject.replace(new RegExp(placeholder, "g"), String(value)); // Subject is plain text, no HTML
+    html = html.replace(new RegExp(placeholder, "g"), safe);
   });
 
   try {
+    const resend = getResend();
+    if (!resend) return { success: false, error: "Email service not configured" };
+
     const result = await resend.emails.send({
-      from: "Audlex <notificaciones@audlex.com>",
+      from: "Audlex <info@audlex.com>",
       to,
       subject,
       html,

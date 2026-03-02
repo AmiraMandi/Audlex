@@ -1,11 +1,35 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResend(): Resend | null {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) {
+    console.warn("[EMAIL] RESEND_API_KEY not set, emails will not be sent");
+    return null;
+  }
+  return new Resend(key);
+}
 
-const FROM_EMAIL = process.env.FROM_EMAIL || process.env.EMAIL_FROM || "Audlex <noreply@audlex.com>";
+/** Safe send helper — returns early if Resend is not configured */
+async function safeSend(params: Parameters<Resend["emails"]["send"]>[0]) {
+  const resend = getResend();
+  if (!resend) return { data: null, error: { message: "Email service not configured" } };
+  return resend.emails.send(params);
+}
+
+const FROM_EMAIL = process.env.FROM_EMAIL || process.env.EMAIL_FROM || "Audlex <info@audlex.com>";
 
 type Locale = "es" | "en";
 function m(locale: Locale, es: string, en: string) { return locale === "en" ? en : es; }
+
+/** Escape user-controlled strings before inserting into HTML emails */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 // ─── Email templates ──────────────────────────────────────────────
 
@@ -62,14 +86,15 @@ export async function sendWelcomeEmail({
   locale?: Locale;
 }) {
   const en = locale === "en";
-  return resend.emails.send({
+  const safeName = escapeHtml(name);
+  return safeSend({
     from: FROM_EMAIL,
     to,
     subject: en
       ? "Welcome to Audlex — Start your EU AI Act compliance"
       : "Bienvenido a Audlex — Empieza tu compliance con el EU AI Act",
     html: baseLayout(en ? `
-      <h1>Welcome, ${name}!</h1>
+      <h1>Welcome, ${safeName}!</h1>
       <p>Thank you for signing up to Audlex. You're one step away from ensuring compliance with the European AI Regulation.</p>
       <div class="highlight">
         <strong>Where to start?</strong>
@@ -78,7 +103,7 @@ export async function sendWelcomeEmail({
       <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" class="btn">Go to Dashboard</a></p>
       <p>If you have any questions, reply to this email or check our documentation.</p>
     ` : `
-      <h1>¡Bienvenido, ${name}!</h1>
+      <h1>¡Bienvenido, ${safeName}!</h1>
       <p>Gracias por registrarte en Audlex. Estás a un paso de asegurar el cumplimiento con el Reglamento Europeo de Inteligencia Artificial.</p>
       <div class="highlight">
         <strong>¿Por dónde empezar?</strong>
@@ -119,8 +144,9 @@ export async function sendClassificationCompleteEmail({
   };
 
   const label = riskLabels[riskLevel]?.[locale] || riskLevel;
+  const safeSystemName = escapeHtml(systemName);
 
-  return resend.emails.send({
+  return safeSend({
     from: FROM_EMAIL,
     to,
     subject: en
@@ -128,7 +154,7 @@ export async function sendClassificationCompleteEmail({
       : `Clasificación completada: ${systemName} — Riesgo ${label}`,
     html: baseLayout(en ? `
       <h1>Classification complete</h1>
-      <p>The AI system <strong>${systemName}</strong> has been classified:</p>
+      <p>The AI system <strong>${safeSystemName}</strong> has been classified:</p>
       <div class="highlight">
         <p style="margin:0">Risk level: <span class="badge ${badgeClass[riskLevel] || "badge-limited"}">${label}</span></p>
         <p style="margin:8px 0 0">Obligations identified: <strong>${obligationCount}</strong></p>
@@ -137,7 +163,7 @@ export async function sendClassificationCompleteEmail({
       <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/documentacion" class="btn">Generate documentation</a></p>
     ` : `
       <h1>Clasificación completada</h1>
-      <p>El sistema de IA <strong>${systemName}</strong> ha sido clasificado:</p>
+      <p>El sistema de IA <strong>${safeSystemName}</strong> ha sido clasificado:</p>
       <div class="highlight">
         <p style="margin:0">Nivel de riesgo: <span class="badge ${badgeClass[riskLevel] || "badge-limited"}">${label}</span></p>
         <p style="margin:8px 0 0">Obligaciones identificadas: <strong>${obligationCount}</strong></p>
@@ -160,7 +186,9 @@ export async function sendDocumentGeneratedEmail({
   locale?: Locale;
 }) {
   const en = locale === "en";
-  return resend.emails.send({
+  const safeDocTitle = escapeHtml(documentTitle);
+  const safeSysName = escapeHtml(systemName);
+  return safeSend({
     from: FROM_EMAIL,
     to,
     subject: en
@@ -170,8 +198,8 @@ export async function sendDocumentGeneratedEmail({
       <h1>Document generated</h1>
       <p>A new compliance document has been generated:</p>
       <div class="highlight">
-        <p style="margin:0"><strong>${documentTitle}</strong></p>
-        <p style="margin:4px 0 0">System: ${systemName}</p>
+        <p style="margin:0"><strong>${safeDocTitle}</strong></p>
+        <p style="margin:4px 0 0">System: ${safeSysName}</p>
       </div>
       <p>You can review, download or edit it from the documentation section.</p>
       <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/documentacion" class="btn">View documents</a></p>
@@ -179,8 +207,8 @@ export async function sendDocumentGeneratedEmail({
       <h1>Documento generado</h1>
       <p>Se ha generado un nuevo documento de compliance:</p>
       <div class="highlight">
-        <p style="margin:0"><strong>${documentTitle}</strong></p>
-        <p style="margin:4px 0 0">Sistema: ${systemName}</p>
+        <p style="margin:0"><strong>${safeDocTitle}</strong></p>
+        <p style="margin:4px 0 0">Sistema: ${safeSysName}</p>
       </div>
       <p>Puedes revisarlo, descargarlo o editarlo desde la sección de documentación.</p>
       <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/documentacion" class="btn">Ver documentos</a></p>
@@ -204,7 +232,8 @@ export async function sendDeadlineReminderEmail({
   locale?: Locale;
 }) {
   const en = locale === "en";
-  return resend.emails.send({
+  const safeName = escapeHtml(name);
+  return safeSend({
     from: FROM_EMAIL,
     to,
     subject: en
@@ -212,7 +241,7 @@ export async function sendDeadlineReminderEmail({
       : `⚠️ Quedan ${daysRemaining} días para la fecha límite del EU AI Act`,
     html: baseLayout(en ? `
       <h1>Deadline reminder</h1>
-      <p>Hi ${name},</p>
+      <p>Hi ${safeName},</p>
       <p>There are <strong style="color:#d97706">${daysRemaining} days</strong> left until the EU AI Act deadline (2 August 2026).</p>
       <div class="highlight">
         <p style="margin:0">Unclassified systems: <strong>${pendingSystemsCount}</strong></p>
@@ -222,7 +251,7 @@ export async function sendDeadlineReminderEmail({
       <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" class="btn">Go to Dashboard</a></p>
     ` : `
       <h1>Recordatorio de plazo</h1>
-      <p>Hola ${name},</p>
+      <p>Hola ${safeName},</p>
       <p>Quedan <strong style="color:#d97706">${daysRemaining} días</strong> para la fecha límite del EU AI Act (2 de agosto de 2026).</p>
       <div class="highlight">
         <p style="margin:0">Sistemas sin clasificar: <strong>${pendingSystemsCount}</strong></p>
@@ -256,13 +285,13 @@ export async function sendAlertEmail({
 
   const label = severityLabels[severity]?.[locale] || severity;
 
-  return resend.emails.send({
+  return safeSend({
     from: FROM_EMAIL,
     to,
     subject: `[${label}] ${alertTitle}`,
     html: baseLayout(`
-      <h1>${alertTitle}</h1>
-      <p>${alertMessage}</p>
+      <h1>${escapeHtml(alertTitle)}</h1>
+      <p>${escapeHtml(alertMessage)}</p>
       <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" class="btn">${locale === "en" ? "View in Audlex" : "Ver en Audlex"}</a></p>
     `, locale),
   });

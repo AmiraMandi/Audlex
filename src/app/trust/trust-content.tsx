@@ -226,7 +226,7 @@ export function TrustPageContent() {
             {i("trust.contact.subtitle")}
           </p>
           <a
-            href="mailto:security@audlex.com"
+            href="mailto:info@audlex.com"
             className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-6 py-3 text-sm font-semibold text-white hover:bg-brand-600 transition shadow-lg shadow-brand-500/20"
           >
             {i("trust.contact.button")}

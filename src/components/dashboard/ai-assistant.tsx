@@ -106,14 +106,18 @@ export function AiAssistant() {
 
   function renderMarkdown(text: string) {
     // Simple markdown: **bold**, bullet points
+    // Escape HTML first to prevent XSS, then apply controlled markdown formatting
     return text.split("\n").map((line, index) => {
+      const escaped = line.replace(/[&<>"']/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c)
+      );
       if (line.startsWith("• ")) {
-        const content = line.slice(2).replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+        const content = escaped.slice(2).replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
         return (
           <li key={index} className="ml-4 list-disc" dangerouslySetInnerHTML={{ __html: content }} />
         );
       }
-      const content = line.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+      const content = escaped.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
       return line ? (
         <p key={index} dangerouslySetInnerHTML={{ __html: content }} />
       ) : (

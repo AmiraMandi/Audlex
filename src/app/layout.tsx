@@ -79,8 +79,8 @@ export default function RootLayout({
       <body className="min-h-screen font-sans">
         <LocaleProvider>
           {children}
+          <CookieBanner />
         </LocaleProvider>
-        <CookieBanner />
         <Toaster
           position="top-right"
           richColors

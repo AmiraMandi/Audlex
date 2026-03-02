@@ -224,12 +224,12 @@ export function CookiesContent() {
             {en ? (
               <>
                 If you have questions about our cookie policy, contact us at{" "}
-                <a href="mailto:privacidad@audlex.com" className="text-brand-500 hover:underline">privacidad@audlex.com</a>.
+                <a href="mailto:info@audlex.com" className="text-brand-500 hover:underline">info@audlex.com</a>.
               </>
             ) : (
               <>
                 Si tienes preguntas sobre nuestra política de cookies, contacta con nosotros en{" "}
-                <a href="mailto:privacidad@audlex.com" className="text-brand-500 hover:underline">privacidad@audlex.com</a>.
+                <a href="mailto:info@audlex.com" className="text-brand-500 hover:underline">info@audlex.com</a>.
               </>
             )}
           </p>

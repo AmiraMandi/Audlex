@@ -29,7 +29,7 @@ export function DeleteSystemButton({ systemId, systemName }: { systemId: string;
 
   if (confirming) {
     return (
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1" role="alert" aria-live="assertive">
         <button
           onClick={handleDelete}
           disabled={loading}
@@ -50,8 +50,8 @@ export function DeleteSystemButton({ systemId, systemName }: { systemId: string;
   return (
     <button
       onClick={() => setConfirming(true)}
-      className="p-1 rounded hover:bg-red-50 text-text-muted hover:text-red-500 transition"
-      title={i("del.confirm")}
+      className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-text-muted hover:text-red-500 transition"
+      aria-label={i("a11y.deleteSystem", { name: systemName })}
     >
       <Trash2 className="h-3.5 w-3.5" />
     </button>

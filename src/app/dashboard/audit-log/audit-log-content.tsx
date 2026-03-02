@@ -76,16 +76,16 @@ export function AuditLogContent({ logs }: AuditLogContentProps) {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-text-muted">{i("log.count", { count: logs.length })}</span>
+          <span className="text-sm text-text-muted">{i("log.records", { count: logs.length })}</span>
         </div>
       </div>
 
       {logs.length === 0 ? (
         <div className="rounded-xl border border-border bg-surface-secondary p-12 text-center">
           <Activity className="h-12 w-12 text-text-muted mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-text mb-2">{i("log.empty")}</h2>
+          <h2 className="text-lg font-semibold text-text mb-2">{i("log.noActivity")}</h2>
           <p className="text-text-secondary text-sm">
-            {i("log.emptyDesc")}
+            {i("log.noActivityDesc")}
           </p>
         </div>
       ) : (

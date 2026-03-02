@@ -40,10 +40,10 @@ export function SystemDetailContent({ system, documents, complianceItems, assess
   const compliancePercent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
   const riskColors: Record<string, string> = {
-    unacceptable: "bg-red-500/10 text-red-500 border-red-500/20",
-    high: "bg-orange-500/10 text-orange-600 border-orange-500/20",
-    limited: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
-    minimal: "bg-green-500/10 text-green-600 border-green-500/20",
+    unacceptable: "bg-red-500/10 text-red-500 border-red-500/20 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800",
+    high: "bg-orange-500/10 text-orange-600 border-orange-500/20 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800",
+    limited: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20 dark:bg-yellow-950/40 dark:text-yellow-400 dark:border-yellow-800",
+    minimal: "bg-green-500/10 text-green-600 border-green-500/20 dark:bg-green-950/40 dark:text-green-400 dark:border-green-800",
   };
 
   const riskLabels: Record<string, string> = {

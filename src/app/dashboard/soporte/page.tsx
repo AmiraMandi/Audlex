@@ -89,8 +89,8 @@ export default function SoportePage() {
             <Mail className="h-5 w-5 text-brand-500" />
             <div>
               <p className="text-sm font-medium text-text">{i("support.email")}</p>
-              <a href="mailto:soporte@audlex.com" className="text-sm text-brand-600 hover:text-brand-700">
-                soporte@audlex.com
+              <a href="mailto:info@audlex.com" className="text-sm text-brand-600 hover:text-brand-700">
+                info@audlex.com
               </a>
             </div>
           </div>

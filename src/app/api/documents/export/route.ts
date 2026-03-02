@@ -321,7 +321,13 @@ async function generateDocx(
 // ============================================================
 
 function markdownToHtml(md: string): string {
-  let html = md
+  // First escape user-controlled content to prevent XSS, then apply markdown rules
+  let safe = md
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  let html = safe
     // Headings
     .replace(/^### (.+)$/gm, '<h3 style="color:#374151;font-size:14px;margin:16px 0 8px;">$1</h3>')
     .replace(/^## (.+)$/gm, '<h2 style="color:#2563eb;font-size:16px;margin:20px 0 10px;border-bottom:1px solid #e5e7eb;padding-bottom:4px;">$1</h2>')

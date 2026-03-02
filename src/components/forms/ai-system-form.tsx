@@ -155,7 +155,7 @@ export function AiSystemForm({ initialData, initialCategory, initialName, editId
         if (e.path[0]) errors[String(e.path[0])] = e.message;
       });
       setFieldErrors(errors);
-      setError(i("form.validationError"));
+      setError(i("form.fixErrors"));
       setLoading(false);
       return;
     }
@@ -225,8 +225,8 @@ export function AiSystemForm({ initialData, initialCategory, initialName, editId
         <div className="space-y-5">
           <Input
             id="name"
-            label={i("form.nameLabel")}
-            placeholder={i("form.namePlaceholder")}
+            label={i("form.systemName")}
+            placeholder={i("form.systemNamePlaceholder")}
             value={form.name}
             onChange={(e) => { update("name", e.target.value); setFieldErrors((prev) => ({ ...prev, name: "" })); }}
             required
@@ -234,17 +234,17 @@ export function AiSystemForm({ initialData, initialCategory, initialName, editId
           />
           <Select
             id="category"
-            label={i("form.categoryLabel")}
+            label={i("form.category")}
             options={categories}
             value={form.category}
             onChange={(e) => { update("category", e.target.value); setFieldErrors((prev) => ({ ...prev, category: "" })); }}
-            placeholder={i("form.categoryPlaceholder")}
+            placeholder={i("form.selectCategory")}
             required
             error={fieldErrors.category}
           />
           <Textarea
             id="purpose"
-            label={i("form.purposeLabel")}
+            label={i("form.purpose")}
             placeholder={i("form.purposePlaceholder")}
             value={form.purpose}
             onChange={(e) => { update("purpose", e.target.value); setFieldErrors((prev) => ({ ...prev, purpose: "" })); }}
@@ -253,8 +253,8 @@ export function AiSystemForm({ initialData, initialCategory, initialName, editId
           />
           <Textarea
             id="description"
-            label={i("form.descLabel")}
-            placeholder={i("form.descPlaceholder")}
+            label={i("form.descriptionOptional")}
+            placeholder={i("form.descriptionPlaceholder")}
             value={form.description || ""}
             onChange={(e) => update("description", e.target.value)}
           />
@@ -266,7 +266,7 @@ export function AiSystemForm({ initialData, initialCategory, initialName, editId
         <div className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-text mb-3">
-              {i("form.dataLabel")}
+              {i("form.dataTypes")}
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {dataTypeOptions.map((opt) => {
@@ -275,6 +275,7 @@ export function AiSystemForm({ initialData, initialCategory, initialName, editId
                   <button
                     key={opt.value}
                     type="button"
+                    aria-pressed={selected}
                     onClick={() => toggleArrayItem("dataTypes", opt.value)}
                     className={`text-left rounded-lg border p-3 text-sm transition ${
                       selected
@@ -291,7 +292,7 @@ export function AiSystemForm({ initialData, initialCategory, initialName, editId
 
           <div>
             <label className="block text-sm font-medium text-text mb-3">
-              {i("form.personLabel")}
+              {i("form.affectedPersons")}
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {affectedPersonOptions.map((opt) => {
@@ -300,6 +301,7 @@ export function AiSystemForm({ initialData, initialCategory, initialName, editId
                   <button
                     key={opt.value}
                     type="button"
+                    aria-pressed={selected}
                     onClick={() => toggleArrayItem("affectedPersons", opt.value)}
                     className={`text-left rounded-lg border p-3 text-sm transition ${
                       selected
@@ -316,8 +318,8 @@ export function AiSystemForm({ initialData, initialCategory, initialName, editId
 
           <Input
             id="numberOfAffected"
-            label={i("form.affectedCount")}
-            placeholder={i("form.affectedPlaceholder")}
+            label={i("form.estimatedPersons")}
+            placeholder={i("form.estimatedPlaceholder")}
             value={form.numberOfAffected || ""}
             onChange={(e) => update("numberOfAffected", e.target.value)}
           />
@@ -329,14 +331,14 @@ export function AiSystemForm({ initialData, initialCategory, initialName, editId
         <div className="space-y-5">
           <Input
             id="provider"
-            label={i("form.providerLabel")}
+            label={i("form.provider")}
             placeholder={i("form.providerPlaceholder")}
             value={form.provider || ""}
             onChange={(e) => update("provider", e.target.value)}
           />
           <Input
             id="providerModel"
-            label={i("form.modelLabel")}
+            label={i("form.modelVersion")}
             placeholder={i("form.modelPlaceholder")}
             value={form.providerModel || ""}
             onChange={(e) => update("providerModel", e.target.value)}
@@ -357,6 +359,9 @@ export function AiSystemForm({ initialData, initialCategory, initialName, editId
               </div>
               <button
                 type="button"
+                role="switch"
+                aria-checked={form.isAutonomousDecision}
+                aria-label={i("form.autonomous")}
                 onClick={() => update("isAutonomousDecision", !form.isAutonomousDecision)}
                 className={`relative h-6 w-11 rounded-full transition ${
                   form.isAutonomousDecision ? "bg-brand-500" : "bg-border"
@@ -377,6 +382,9 @@ export function AiSystemForm({ initialData, initialCategory, initialName, editId
               </div>
               <button
                 type="button"
+                role="switch"
+                aria-checked={form.hasHumanOversight}
+                aria-label={i("form.oversight")}
                 onClick={() => update("hasHumanOversight", !form.hasHumanOversight)}
                 className={`relative h-6 w-11 rounded-full transition ${
                   form.hasHumanOversight ? "bg-brand-500" : "bg-border"
@@ -393,7 +401,7 @@ export function AiSystemForm({ initialData, initialCategory, initialName, editId
 
           <Textarea
             id="notes"
-            label={i("form.notesLabel")}
+            label={i("form.additionalNotes")}
             placeholder={i("form.notesPlaceholder")}
             value={form.notes || ""}
             onChange={(e) => update("notes", e.target.value)}

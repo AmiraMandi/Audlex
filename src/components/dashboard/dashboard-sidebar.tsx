@@ -58,7 +58,7 @@ export function DashboardSidebar() {
   }, []);
 
   return (
-    <aside className="hidden lg:flex w-64 flex-col border-r border-border bg-surface-secondary">
+    <aside className="hidden lg:flex w-64 flex-col border-r border-border bg-surface-secondary" aria-label={td(locale, "a11y.mainNav")}>
       {/* Logo */}
       <div className="flex items-center justify-center px-6 py-5 border-b border-border">
         <div className="relative h-9 w-auto">
@@ -84,13 +84,14 @@ export function DashboardSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav className="flex-1 px-3 py-4 space-y-1" aria-label={td(locale, "a11y.mainNav")}>
         {navItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
           return (
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? "page" : undefined}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition group ${
                 isActive
                   ? "bg-brand-500/10 text-brand-400 font-medium"
@@ -116,6 +117,7 @@ export function DashboardSidebar() {
         <form action="/api/auth/signout" method="POST">
           <button
             type="submit"
+            aria-label={td(locale, "a11y.signOut")}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-text-secondary hover:bg-red-500/10 hover:text-red-400 transition"
           >
             <LogOut className="h-5 w-5 text-text-muted" />

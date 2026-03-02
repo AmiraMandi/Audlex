@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   FileText,
@@ -56,7 +56,7 @@ const docTypeIcons: Record<string, string> = {
   ai_inventory: "🔍",
 };
 
-export default function DocumentacionPage() {
+function DocumentacionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preSelectedSystem = searchParams.get("system");
@@ -491,5 +491,19 @@ export default function DocumentacionPage() {
         </Modal>
       )}
     </div>
+  );
+}
+
+export default function DocumentacionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin h-8 w-8 border-4 border-brand-500 border-t-transparent rounded-full" />
+        </div>
+      }
+    >
+      <DocumentacionContent />
+    </Suspense>
   );
 }

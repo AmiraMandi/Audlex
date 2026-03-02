@@ -18,9 +18,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // In production, this would send an email via Resend to support@audlex.com
-    // For now, we log it and return success
-    console.log(`[SUPPORT] From: ${user.email}, Subject: ${subject}, Message: ${message}`);
+    // Input length limits to prevent oversized payloads
+    if (typeof subject !== "string" || subject.length > 200) {
+      return NextResponse.json({ error: "Subject too long (max 200 chars)" }, { status: 400 });
+    }
+    if (typeof message !== "string" || message.length > 5000) {
+      return NextResponse.json({ error: "Message too long (max 5000 chars)" }, { status: 400 });
+    }
+
+    // Log ticket receipt without PII (full content sent via email)
+    console.log(`[SUPPORT] Ticket received from user ${user.id}`);
 
     // Optionally send email if Resend is configured
     const resendKey = process.env.RESEND_API_KEY;
@@ -29,8 +36,8 @@ export async function POST(req: NextRequest) {
         const { Resend } = await import("resend");
         const resend = new Resend(resendKey);
         await resend.emails.send({
-          from: process.env.FROM_EMAIL || process.env.EMAIL_FROM || "Audlex <noreply@audlex.com>",
-          to: "soporte@audlex.com",
+          from: process.env.FROM_EMAIL || process.env.EMAIL_FROM || "Audlex <info@audlex.com>",
+          to: "info@audlex.com",
           subject: `[Soporte] ${subject}`,
           text: `De: ${user.email}\n\n${message}`,
         });

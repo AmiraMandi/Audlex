@@ -91,7 +91,6 @@ export default function RegistroPage() {
       }
 
       router.push("/dashboard");
-      router.refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : (locale === "es" ? "Error desconocido" : "Unknown error"));
       setLoading(false);

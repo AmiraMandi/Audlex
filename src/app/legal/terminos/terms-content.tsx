@@ -269,12 +269,12 @@ export function TermsContent() {
             {en ? (
               <>
                 For any questions about these Terms, you can contact us at{" "}
-                <a href="mailto:legal@audlex.com" className="text-brand-500 hover:underline">legal@audlex.com</a>.
+                <a href="mailto:info@audlex.com" className="text-brand-500 hover:underline">info@audlex.com</a>.
               </>
             ) : (
               <>
                 Para cualquier consulta sobre estos Términos, puedes contactarnos en{" "}
-                <a href="mailto:legal@audlex.com" className="text-brand-500 hover:underline">legal@audlex.com</a>.
+                <a href="mailto:info@audlex.com" className="text-brand-500 hover:underline">info@audlex.com</a>.
               </>
             )}
           </p>

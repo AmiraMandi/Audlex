@@ -58,9 +58,9 @@ export default function ResetPasswordPage() {
               <h2 className="text-lg font-semibold text-text mb-2">
                 {i("auth.reset.sent.title")}
               </h2>
-              <p className="text-sm text-text-secondary mb-6"
-                 dangerouslySetInnerHTML={{ __html: i("auth.reset.sent.text", { email }) }}
-              />
+              <p className="text-sm text-text-secondary mb-6">
+                {i("auth.reset.sent.prefix")} <strong>{email}</strong> {i("auth.reset.sent.suffix")}
+              </p>
               <Link
                 href="/auth/login"
                 className="inline-flex items-center gap-2 text-sm font-medium text-brand-500 hover:text-brand-600 transition"

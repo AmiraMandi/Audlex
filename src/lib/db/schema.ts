@@ -352,6 +352,13 @@ export const documentsRelations = relations(documents, ({ one }) => ({
   }),
 }));
 
+// --- Newsletter Subscribers ---
+export const newsletterSubscribers = pgTable("newsletter_subscribers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  subscribedAt: timestamp("subscribed_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // ============================================================
 // TYPES
 // ============================================================
@@ -368,6 +375,7 @@ export type Document = typeof documents.$inferSelect;
 export type NewDocument = typeof documents.$inferInsert;
 export type ComplianceItem = typeof complianceItems.$inferSelect;
 export type Alert = typeof alerts.$inferSelect;
+export type NewsletterSubscriber = typeof newsletterSubscribers.$inferSelect;
 
 export interface Obligation {
   article: string;

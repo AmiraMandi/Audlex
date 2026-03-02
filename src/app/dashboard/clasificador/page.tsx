@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Shield, ArrowRight, ArrowLeft, CheckCircle2, AlertTriangle, XCircle, Info, FileText, ChevronDown } from "lucide-react";
+import { Shield, ArrowRight, ArrowLeft, CheckCircle2, AlertTriangle, XCircle, Info, FileText, ChevronDown, Loader2 } from "lucide-react";
 import {
   getClassificationQuestions,
   classifyRisk,
@@ -26,7 +26,7 @@ const riskConfig: Record<RiskLevel, { color: string; bg: string; border: string;
   minimal: { color: "text-green-700 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/40", border: "border-green-200 dark:border-green-800", icon: CheckCircle2 },
 };
 
-export default function ClasificadorPage() {
+function ClasificadorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const systemId = searchParams.get("system");
@@ -386,11 +386,15 @@ export default function ClasificadorPage() {
           ) : (
             <button
               onClick={handleClassify}
-              disabled={!canClassify(answers)}
+              disabled={!canClassify(answers) || saving}
               className="flex items-center gap-2 rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50 transition"
             >
-              <Shield className="h-4 w-4" />
-              {i("cls.classifyRisk")}
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Shield className="h-4 w-4" />
+              )}
+              {saving ? i("cls.classifying") : i("cls.classifyRisk")}
             </button>
           )}
         </div>
@@ -401,12 +405,27 @@ export default function ClasificadorPage() {
         <div className="text-center">
           <button
             onClick={handleClassify}
-            className="text-xs text-brand-600 hover:text-brand-700 underline"
+            disabled={saving}
+            className="text-xs text-brand-600 hover:text-brand-700 underline disabled:opacity-50"
           >
             {i("cls.quickClassify")}
           </button>
         </div>
       )}
     </div>
+  );
+}
+
+export default function ClasificadorPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin h-8 w-8 border-4 border-brand-500 border-t-transparent rounded-full" />
+        </div>
+      }
+    >
+      <ClasificadorContent />
+    </Suspense>
   );
 }

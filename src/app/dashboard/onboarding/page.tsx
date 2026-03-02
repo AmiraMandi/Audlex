@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   Building2,
   Cpu,
   Shield,
-  ShieldCheck,
   ArrowRight,
   ArrowLeft,
   CheckCircle2,
@@ -43,6 +43,20 @@ export default function OnboardingPage() {
   const [size, setSize] = useState("");
   const [selectedSystem, setSelectedSystem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const checkTheme = () => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    };
+    checkTheme();
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   const { locale } = useLocale();
   const i = (key: string, r?: Record<string, string | number>) => td(locale, key, r);
@@ -95,14 +109,26 @@ export default function OnboardingPage() {
       {/* Header */}
       <div className="border-b border-border bg-surface-secondary px-6 py-4">
         <div className="mx-auto max-w-2xl flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-7 w-7 text-brand-500" />
-            <span className="text-lg font-bold text-text">
-              aud<span className="text-brand-500">lex</span>
-            </span>
+          <div className="relative h-8 w-auto">
+            <Image
+              src={isDark ? "/logo-white.svg" : "/logo.svg"}
+              alt="Audlex Logo"
+              width={130}
+              height={32}
+              className="h-8 w-auto object-contain"
+            />
           </div>
           <button
-            onClick={() => router.push("/dashboard")}
+            onClick={async () => {
+              try {
+                await fetch("/api/onboarding", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({}),
+                });
+              } catch {}
+              router.push("/dashboard");
+            }}
             className="text-sm text-text-muted hover:text-text transition"
           >
             {i("onb.skip")}

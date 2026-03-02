@@ -1,6 +1,6 @@
-/**
+﻿/**
  * ============================================================
- * Audlex — Checklist Progress Charts
+ * Audlex â€” Checklist Progress Charts
  * ============================================================
  * 
  * Visualizations for compliance checklist progress:
@@ -72,7 +72,7 @@ export function ChecklistCharts({ items }: ChecklistChartsProps) {
   }, {});
 
   const categoryChartData = Object.entries(categoryStats).map(([category, stats]) => ({
-    category: i(`ck.cat.${category}`),
+    category: i(`chk.cat.${category}`),
     completed: stats.completed,
     pending: stats.pending,
     percentage: Math.round((stats.completed / stats.total) * 100),
@@ -146,9 +146,9 @@ export function ChecklistCharts({ items }: ChecklistChartsProps) {
       {timelineData.length > 1 && (
         <div className="rounded-lg border border-border bg-background p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-text-primary">{i("ck.chartTimeline")}</h3>
+            <h3 className="text-lg font-semibold text-text-primary">{i("chk.chartTimeline")}</h3>
             <div className="text-sm text-text-muted">
-              {i("ck.avgDays")}: <span className="font-semibold text-text-primary">{avgDaysToComplete}</span> {i("ck.days")}
+              {i("chk.avgDays")}: <span className="font-semibold text-text-primary">{avgDaysToComplete}</span> {i("chk.days")}
             </div>
           </div>
           <ResponsiveContainer width="100%" height={250}>
@@ -165,7 +165,7 @@ export function ChecklistCharts({ items }: ChecklistChartsProps) {
                 tick={{ fontSize: 12, fill: "#6B7280" }}
                 tickLine={false}
                 axisLine={{ stroke: "#E5E7EB" }}
-                label={{ value: i("ck.completed"), angle: -90, position: "insideLeft", style: { fontSize: 12, fill: "#6B7280" } }}
+                label={{ value: i("chk.completed"), angle: -90, position: "insideLeft", style: { fontSize: 12, fill: "#6B7280" } }}
               />
               <YAxis
                 yAxisId="right"
@@ -190,7 +190,7 @@ export function ChecklistCharts({ items }: ChecklistChartsProps) {
                 stroke="#2563EB"
                 strokeWidth={2}
                 dot={{ fill: "#2563EB", r: 3 }}
-                name={i("ck.completed")}
+                name={i("chk.completed")}
               />
               <Line
                 yAxisId="right"
@@ -199,7 +199,7 @@ export function ChecklistCharts({ items }: ChecklistChartsProps) {
                 stroke="#059669"
                 strokeWidth={2}
                 dot={{ fill: "#059669", r: 3 }}
-                name={i("ck.percentage")}
+                name={i("chk.percentage")}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -208,7 +208,7 @@ export function ChecklistCharts({ items }: ChecklistChartsProps) {
 
       {/* Category Breakdown */}
       <div className="rounded-lg border border-border bg-background p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-text-primary mb-4">{i("ck.chartCategory")}</h3>
+        <h3 className="text-lg font-semibold text-text-primary mb-4">{i("chk.chartCategory")}</h3>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={categoryChartData} layout="horizontal">
             <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
@@ -234,8 +234,8 @@ export function ChecklistCharts({ items }: ChecklistChartsProps) {
               }}
             />
             <Legend />
-            <Bar dataKey="completed" fill="#059669" name={i("ck.completed")} radius={[0, 4, 4, 0]} />
-            <Bar dataKey="pending" fill="#D97706" name={i("ck.pending")} radius={[0, 4, 4, 0]} />
+            <Bar dataKey="completed" fill="#059669" name={i("chk.completed")} radius={[0, 4, 4, 0]} />
+            <Bar dataKey="pending" fill="#D97706" name={i("chk.pending")} radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -243,18 +243,18 @@ export function ChecklistCharts({ items }: ChecklistChartsProps) {
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="rounded-lg border border-border bg-background p-4">
-          <p className="text-sm text-text-muted mb-1">{i("ck.totalItems")}</p>
+          <p className="text-sm text-text-muted mb-1">{i("chk.totalItems")}</p>
           <p className="text-2xl font-bold text-text-primary">{items.length}</p>
         </div>
         <div className="rounded-lg border border-border bg-background p-4">
-          <p className="text-sm text-text-muted mb-1">{i("ck.completionRate")}</p>
+          <p className="text-sm text-text-muted mb-1">{i("chk.completionRate")}</p>
           <p className="text-2xl font-bold text-emerald-600">
             {Math.round((items.filter((i) => i.status === "completed").length / items.length) * 100)}%
           </p>
         </div>
         <div className="rounded-lg border border-border bg-background p-4">
-          <p className="text-sm text-text-muted mb-1">{i("ck.avgDays")}</p>
-          <p className="text-2xl font-bold text-text-primary">{avgDaysToComplete} {i("ck.days")}</p>
+          <p className="text-sm text-text-muted mb-1">{i("chk.avgDays")}</p>
+          <p className="text-2xl font-bold text-text-primary">{avgDaysToComplete} {i("chk.days")}</p>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Bell,
   AlertTriangle,
@@ -19,6 +20,7 @@ type Alert = {
   severity: string;
   title: string;
   message: string | null;
+  actionUrl: string | null;
   isRead: boolean;
   createdAt: Date;
 };
@@ -42,6 +44,7 @@ export function AlertsDropdown() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   const { locale } = useLocale();
   const i = (key: string, r?: Record<string, string | number>) => td(locale, key, r);
 
@@ -89,6 +92,14 @@ export function AlertsDropdown() {
       );
     } catch {
       // ignore
+    }
+  }
+
+  async function handleAlertClick(alert: Alert) {
+    await handleMarkRead(alert.id);
+    if (alert.actionUrl) {
+      setIsOpen(false);
+      router.push(alert.actionUrl);
     }
   }
 
@@ -157,10 +168,10 @@ export function AlertsDropdown() {
                 return (
                   <button
                     key={alert.id}
-                    onClick={() => handleMarkRead(alert.id)}
+                    onClick={() => handleAlertClick(alert)}
                     className={`w-full text-left flex items-start gap-3 px-4 py-3 border-b border-border/50 hover:bg-surface-tertiary transition ${
                       !alert.isRead ? "bg-blue-50/30" : ""
-                    }`}
+                    } ${alert.actionUrl ? "cursor-pointer" : ""}`}
                   >
                     <div className={`rounded-lg p-1.5 mt-0.5 ${colors}`}>
                       <Icon className="h-3.5 w-3.5" />
@@ -181,6 +192,13 @@ export function AlertsDropdown() {
                       )}
                       <p className="text-xs text-text-muted mt-1">{timeAgo(alert.createdAt)}</p>
                     </div>
+                    {alert.actionUrl && (
+                      <div className="mt-1.5 shrink-0 text-text-muted">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    )}
                   </button>
                 );
               })

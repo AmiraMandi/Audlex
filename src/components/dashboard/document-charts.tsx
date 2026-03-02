@@ -1,12 +1,12 @@
-/**
+﻿/**
  * ============================================================
- * Audlex — Documentation Generation Charts
+ * Audlex â€” Documentation Generation Charts
  * ============================================================
  * 
  * Visualizations for document generation activity:
  * - Documents generated over time (timeline)
  * - Document types distribution
- * - Status flow (draft → review → approved)
+ * - Status flow (draft â†’ review â†’ approved)
  */
 
 "use client";
@@ -95,22 +95,22 @@ export function DocumentCharts({ documents }: DocumentChartsProps) {
   // Status distribution
   const statusData = [
     {
-      name: i("doc.status.draft"),
+      name: i("docs.status.draft"),
       value: documents.filter((d) => d.status === "draft").length,
       color: STATUS_COLORS.draft,
     },
     {
-      name: i("doc.status.review"),
+      name: i("docs.status.review"),
       value: documents.filter((d) => d.status === "review").length,
       color: STATUS_COLORS.review,
     },
     {
-      name: i("doc.status.approved"),
+      name: i("docs.status.approved"),
       value: documents.filter((d) => d.status === "approved").length,
       color: STATUS_COLORS.approved,
     },
     {
-      name: i("doc.status.expired"),
+      name: i("docs.status.expired"),
       value: documents.filter((d) => d.status === "expired").length,
       color: STATUS_COLORS.expired,
     },
@@ -240,19 +240,19 @@ export function DocumentCharts({ documents }: DocumentChartsProps) {
           <p className="text-2xl font-bold text-text-primary">{documents.length}</p>
         </div>
         <div className="rounded-lg border border-border bg-background p-4">
-          <p className="text-sm text-text-muted mb-1">{i("doc.status.draft")}</p>
+          <p className="text-sm text-text-muted mb-1">{i("docs.status.draft")}</p>
           <p className="text-2xl font-bold text-gray-600">
             {documents.filter((d) => d.status === "draft").length}
           </p>
         </div>
         <div className="rounded-lg border border-border bg-background p-4">
-          <p className="text-sm text-text-muted mb-1">{i("doc.status.review")}</p>
+          <p className="text-sm text-text-muted mb-1">{i("docs.status.review")}</p>
           <p className="text-2xl font-bold text-amber-600">
             {documents.filter((d) => d.status === "review").length}
           </p>
         </div>
         <div className="rounded-lg border border-border bg-background p-4">
-          <p className="text-sm text-text-muted mb-1">{i("doc.status.approved")}</p>
+          <p className="text-sm text-text-muted mb-1">{i("docs.status.approved")}</p>
           <p className="text-2xl font-bold text-emerald-600">
             {documents.filter((d) => d.status === "approved").length}
           </p>

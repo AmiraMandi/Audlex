@@ -157,6 +157,22 @@ CREATE POLICY "Users can access own org documents"
   );
 
 -- ============================================================
+-- STORAGE: Bucket para evidencia de compliance
+-- ============================================================
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('evidence', 'evidence', false)
+ON CONFLICT DO NOTHING;
+
+-- Policy: solo usuarios autenticados de la misma org (path-based: {org_id}/{itemId}/{filename})
+CREATE POLICY "Users can access own org evidence"
+  ON storage.objects FOR ALL
+  USING (
+    bucket_id = 'evidence'
+    AND auth.role() = 'authenticated'
+    AND (storage.foldername(name))[1] = auth.user_org_id()::text
+  );
+
+-- ============================================================
 -- TRIGGER: auto-actualizar updated_at
 -- ============================================================
 CREATE OR REPLACE FUNCTION update_updated_at()

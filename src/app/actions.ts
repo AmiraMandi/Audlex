@@ -47,6 +47,29 @@ async function logAction(
 }
 
 // ============================================================
+// ALERT HELPER (fire-and-forget, never blocks)
+// ============================================================
+
+async function fireAlert(
+  organizationId: string,
+  input: {
+    type: "deadline" | "regulation_update" | "compliance_gap" | "document_expiry" | "system_review";
+    title: string;
+    message: string;
+    severity: "info" | "warning" | "critical";
+    actionUrl?: string;
+    relatedEntityType?: string;
+    relatedEntityId?: string;
+  }
+) {
+  try {
+    await db.insert(alerts).values({ organizationId, ...input });
+  } catch {
+    console.error("Failed to create alert");
+  }
+}
+
+// ============================================================
 // AUTH HELPER
 // ============================================================
 
@@ -206,6 +229,17 @@ export async function createAiSystem(input: CreateSystemInput) {
   await logAction(user.id, user.organizationId, "ai_system.created", "aiSystem", system.id, {
     name: parsed.name,
     category: parsed.category,
+  });
+
+  // Alert: new system registered
+  await fireAlert(user.organizationId, {
+    type: "system_review",
+    title: `Sistema registrado: ${parsed.name}`,
+    message: "Nuevo sistema de IA añadido al inventario. Clasifica su riesgo para continuar con el compliance.",
+    severity: "info",
+    actionUrl: `/dashboard/inventario`,
+    relatedEntityType: "aiSystem",
+    relatedEntityId: system.id,
   });
 
   return system;
@@ -389,6 +423,26 @@ export async function runClassification(
     aiSystemId,
     riskLevel: result.riskLevel,
     score: result.score,
+  });
+
+  // Alert: classification result
+  const riskLabels: Record<string, string> = {
+    unacceptable: "⛔ PROHIBIDO",
+    high: "🔴 Alto riesgo",
+    limited: "🟡 Riesgo limitado",
+    minimal: "🟢 Riesgo mínimo",
+  };
+  const isHighRisk = result.riskLevel === "high" || result.riskLevel === "unacceptable";
+  await fireAlert(user.organizationId, {
+    type: isHighRisk ? "compliance_gap" : "system_review",
+    title: `${system.name}: ${riskLabels[result.riskLevel] || result.riskLevel}`,
+    message: isHighRisk
+      ? "Este sistema requiere documentación obligatoria y supervisión humana según el EU AI Act."
+      : "Clasificación completada. Genera la documentación correspondiente.",
+    severity: isHighRisk ? "warning" : "info",
+    actionUrl: `/dashboard/inventario/${aiSystemId}`,
+    relatedEntityType: "riskAssessment",
+    relatedEntityId: assessment.id,
   });
 
   // Send classification complete email (non-blocking)
@@ -576,6 +630,17 @@ export async function generateAndSaveDocument(
     type,
     title: generated.title,
     aiSystemId,
+  });
+
+  // Alert: document generated
+  await fireAlert(user.organizationId, {
+    type: "system_review",
+    title: `Documento generado: ${generated.title}`,
+    message: "Revisa el contenido y apruébalo cuando esté listo.",
+    severity: "info",
+    actionUrl: `/dashboard/documentacion`,
+    relatedEntityType: "document",
+    relatedEntityId: doc.id,
   });
 
   // Send document generated email (non-blocking)

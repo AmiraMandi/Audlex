@@ -450,10 +450,10 @@ function KPICard({
   color: "blue" | "green" | "amber" | "red";
 }) {
   const colors = {
-    blue: "bg-blue-50 text-blue-600",
-    green: "bg-green-50 text-green-600",
-    amber: "bg-amber-50 text-amber-600",
-    red: "bg-red-50 text-red-600",
+    blue: "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400",
+    green: "bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400",
+    amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",
+    red: "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400",
   };
 
   return (

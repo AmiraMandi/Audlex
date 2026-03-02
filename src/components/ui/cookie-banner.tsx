@@ -38,7 +38,7 @@ export function CookieBanner() {
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-semibold text-text mb-1">{i("cookie.title")}</h3>
             <p className="text-sm text-text-secondary leading-relaxed">
-              {i("cookie.desc")}{" "}
+              {i("cookie.description")}{" "}
               <Link href="/legal/cookies" className="text-brand-500 hover:underline">
                 {i("cookie.policyLink")}
               </Link>.

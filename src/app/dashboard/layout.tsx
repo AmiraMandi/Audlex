@@ -33,6 +33,14 @@ export default async function DashboardLayout({
 
   return (
       <div className="flex h-screen bg-surface">
+        {/* Skip to content — accessibility */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:rounded-lg focus:bg-brand-500 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
+        >
+          Skip to main content
+        </a>
+
         {/* Process pending plan after login */}
         <PendingPlanHandler />
         
@@ -66,7 +74,7 @@ export default async function DashboardLayout({
           </header>
 
           {/* Page content */}
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6 scrollbar-thin">
+          <main id="main-content" className="flex-1 overflow-y-auto p-4 sm:p-6 scrollbar-thin">
             <ErrorBoundary>
               <PageTransition>
                 {children}

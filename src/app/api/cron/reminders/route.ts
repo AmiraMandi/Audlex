@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { organizations, users, complianceItems, aiSystems, alerts } from "@/lib/db/schema";
-import { eq, and, lte, not, inArray } from "drizzle-orm";
+import { eq, and, lte, not, inArray, sql } from "drizzle-orm";
 
 // This endpoint is designed to be called by a cron job (e.g., Vercel Cron)
 // It checks for upcoming deadlines and sends reminder emails + creates alerts
@@ -62,6 +62,22 @@ export async function GET(request: NextRequest) {
     let emailsSent = 0;
 
     for (const [orgId, { items, urgent }] of byOrg) {
+      // Deduplicate: skip if a deadline alert was already created today for this org
+      const today = new Date().toISOString().split("T")[0];
+      const existing = await db
+        .select()
+        .from(alerts)
+        .where(
+          and(
+            eq(alerts.organizationId, orgId),
+            eq(alerts.type, "deadline"),
+            sql`DATE(${alerts.createdAt}) = ${today}`
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) continue;
+
       // Create alert for each organization with upcoming deadlines
       const severity = urgent ? "critical" : "warning";
       const pendingCount = items.length;
