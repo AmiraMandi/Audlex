@@ -11,6 +11,7 @@ import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { SearchModal } from "@/components/dashboard/search-modal";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { PendingPlanHandler } from "@/components/dashboard/pending-plan-handler";
+import { PageTransition } from "@/components/ui/page-transition";
 
 export default async function DashboardLayout({
   children,
@@ -67,7 +68,9 @@ export default async function DashboardLayout({
           {/* Page content */}
           <main className="flex-1 overflow-y-auto p-4 sm:p-6 scrollbar-thin">
             <ErrorBoundary>
-              {children}
+              <PageTransition>
+                {children}
+              </PageTransition>
             </ErrorBoundary>
           </main>
         </div>

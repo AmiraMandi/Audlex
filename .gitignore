@@ -37,3 +37,11 @@ next-env.d.ts
 
 # drizzle
 /drizzle/meta
+
+# Stripe CLI binary — install locally, don't commit
+stripe-cli/
+
+# Legacy / test files
+test-db.mjs
+test-ipv6.mjs
+auditia-README.md

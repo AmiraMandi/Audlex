@@ -98,7 +98,7 @@ export function DashboardContent({
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center max-w-lg">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-brand-50 flex items-center justify-center mb-6">
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center mb-6">
             <ShieldCheck className="h-8 w-8 text-brand-500" />
           </div>
           <h1 className="text-2xl font-bold text-text mb-2">
@@ -108,17 +108,17 @@ export function DashboardContent({
             {locale === "es" ? (
               <>
                 Quedan{" "}
-                <strong className="text-orange-600">{days} días</strong> hasta la
+                <strong className="text-orange-600 dark:text-orange-400">{days} días</strong> hasta la
                 fecha límite del EU AI Act.
               </>
             ) : (
               <>
-                <strong className="text-orange-600">{days} days</strong> left
+                <strong className="text-orange-600 dark:text-orange-400">{days} days</strong> left
                 until the EU AI Act deadline.
               </>
             )}
           </p>
-          <p className="text-text-secondary mb-8">{i("dash.getStarted")}</p>
+          <p className="text-text-secondary mb-6">{i("dash.getStarted")}</p>
           <Link
             href="/dashboard/inventario"
             className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-6 py-3 text-sm font-semibold text-white hover:bg-brand-600 transition"
@@ -127,6 +127,31 @@ export function DashboardContent({
             {i("dash.addFirst")}
           </Link>
           <p className="mt-4 text-xs text-text-muted">{i("dash.takesLess")}</p>
+
+          {/* Common systems hint */}
+          <div className="mt-8 p-4 rounded-xl bg-surface-secondary border border-border text-left">
+            <p className="text-sm font-medium text-text mb-2">
+              {locale === "es" ? "¿No sabes por dónde empezar?" : "Not sure where to start?"}
+            </p>
+            <p className="text-xs text-text-secondary mb-3">
+              {locale === "es"
+                ? "Estos son los sistemas de IA más comunes en empresas:"
+                : "These are the most common AI systems in companies:"}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                locale === "es" ? "Chatbot / Asistente IA" : "Chatbot / AI Assistant",
+                locale === "es" ? "CRM con IA" : "AI-powered CRM",
+                locale === "es" ? "Screening de CVs" : "CV Screening",
+                locale === "es" ? "Generación de contenido" : "Content Generation",
+                locale === "es" ? "Análisis predictivo" : "Predictive Analytics",
+              ].map((name) => (
+                <span key={name} className="text-xs px-2 py-1 rounded-md bg-surface-tertiary text-text-secondary">
+                  {name}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );

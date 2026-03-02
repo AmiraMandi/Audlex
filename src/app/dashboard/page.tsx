@@ -1,6 +1,11 @@
 import { getDashboardStats, getDashboardCharts, getRecentActivity } from "@/app/actions";
 import { DashboardContent } from "./dashboard-content";
 import type { ActivityLogEntry } from "@/types";
+import { redirect } from "next/navigation";
+import { createSupabaseServer } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { organizations, users } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 export const metadata = {
   title: "Dashboard",
@@ -13,6 +18,38 @@ function daysUntil() {
 }
 
 export default async function DashboardPage() {
+  // Redirect to onboarding if not completed
+  let shouldRedirectToOnboarding = false;
+  try {
+    const supabase = await createSupabaseServer();
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) {
+      const [dbUser] = await db
+        .select({ organizationId: users.organizationId })
+        .from(users)
+        .where(eq(users.authProviderId, authUser.id))
+        .limit(1);
+
+      if (dbUser) {
+        const [org] = await db
+          .select({ onboardingCompleted: organizations.onboardingCompleted })
+          .from(organizations)
+          .where(eq(organizations.id, dbUser.organizationId))
+          .limit(1);
+
+        if (org && !org.onboardingCompleted) {
+          shouldRedirectToOnboarding = true;
+        }
+      }
+    }
+  } catch {
+    // User not authenticated — layout will handle redirect
+  }
+
+  if (shouldRedirectToOnboarding) {
+    redirect("/dashboard/onboarding");
+  }
+
   let data = {
     totalSystems: 0,
     classifiedSystems: 0,

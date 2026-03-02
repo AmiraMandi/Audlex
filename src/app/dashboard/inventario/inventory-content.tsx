@@ -82,9 +82,9 @@ const commonSystems = [
 ];
 
 const riskColors = {
-  high: "bg-orange-100 text-orange-700 border-orange-200",
-  limited: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  minimal: "bg-green-100 text-green-700 border-green-200",
+  high: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800",
+  limited: "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-950/40 dark:text-yellow-400 dark:border-yellow-800",
+  minimal: "bg-green-100 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-400 dark:border-green-800",
 };
 
 import type { AiSystemWithRisk } from "@/types";

@@ -1,4 +1,5 @@
 import { MetadataRoute } from "next";
+import { blogPosts } from "@/lib/blog-posts";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://audlex.com";
 
@@ -37,27 +38,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ];
 
-  // Blog posts (dynamic content)
-  const blogPosts: MetadataRoute.Sitemap = [
-    {
-      url: `${BASE_URL}/blog/que-es-eu-ai-act-guia-completa`,
-      lastModified: new Date("2025-06-15"),
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-    {
-      url: `${BASE_URL}/blog/sistemas-ia-alto-riesgo-como-identificarlos`,
-      lastModified: new Date("2025-06-08"),
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-    {
-      url: `${BASE_URL}/blog/multas-ai-act-como-evitarlas`,
-      lastModified: new Date("2025-05-28"),
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-  ];
+  // Blog posts (generated from shared config)
+  const blogRoutes: MetadataRoute.Sitemap = blogPosts.map((post) => ({
+    url: `${BASE_URL}/blog/${post.slug}`,
+    lastModified: new Date(post.lastModified),
+    changeFrequency: "monthly" as const,
+    priority: 0.8,
+  }));
 
   // Legal pages (low priority, static)
   const legalRoutes: MetadataRoute.Sitemap = [
@@ -81,5 +68,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ];
 
-  return [...staticRoutes, ...blogPosts, ...legalRoutes];
+  return [...staticRoutes, ...blogRoutes, ...legalRoutes];
 }

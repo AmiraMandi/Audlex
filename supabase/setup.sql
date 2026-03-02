@@ -147,12 +147,13 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('documents', 'documents', false)
 ON CONFLICT DO NOTHING;
 
--- Policy: solo usuarios autenticados de la misma org
+-- Policy: solo usuarios autenticados de la misma org (path-based: {org_id}/{filename})
 CREATE POLICY "Users can access own org documents"
   ON storage.objects FOR ALL
   USING (
     bucket_id = 'documents'
     AND auth.role() = 'authenticated'
+    AND (storage.foldername(name))[1] = auth.user_org_id()::text
   );
 
 -- ============================================================
@@ -184,4 +185,8 @@ CREATE TRIGGER set_updated_at_documents
 
 CREATE TRIGGER set_updated_at_whitelabel_config
   BEFORE UPDATE ON whitelabel_config
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER set_updated_at_risk_assessments
+  BEFORE UPDATE ON risk_assessments
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();

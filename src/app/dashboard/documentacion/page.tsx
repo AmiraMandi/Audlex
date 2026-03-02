@@ -71,6 +71,7 @@ export default function DocumentacionPage() {
   const [editContent, setEditContent] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
   const [selectedSystem, setSelectedSystem] = useState<string>(preSelectedSystem || "");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { locale } = useLocale();
   const i = (key: string, r?: Record<string, string | number>) => td(locale, key, r);
@@ -119,12 +120,15 @@ export default function DocumentacionPage() {
 
   async function handleDelete(id: string) {
     if (!confirm(i("docs.deleteConfirm"))) return;
+    setDeletingId(id);
     try {
       await deleteDocument(id);
       setDocuments((prev) => prev.filter((d) => d.id !== id));
       toast.success(i("docs.deleted"));
     } catch {
       toast.error(i("docs.deleteError"));
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -404,8 +408,9 @@ export default function DocumentacionPage() {
                           size="icon-sm"
                           onClick={() => handleDelete(doc.id)}
                           title={i("docs.tooltipDelete")}
+                          disabled={deletingId === doc.id}
                         >
-                          <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                          <Trash2 className={`h-3.5 w-3.5 text-red-500 ${deletingId === doc.id ? "animate-spin" : ""}`} />
                         </Button>
                       </div>
                     </div>

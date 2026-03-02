@@ -106,6 +106,9 @@ export function AlertsDropdown() {
           if (!isOpen) loadAlerts();
         }}
         className="relative rounded-lg p-2 hover:bg-surface-tertiary transition"
+        aria-label={unreadCount > 0 ? `Alertas (${unreadCount} sin leer)` : "Alertas"}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
       >
         <Bell className="h-5 w-5 text-text-muted" />
         {unreadCount > 0 && (
@@ -116,7 +119,7 @@ export function AlertsDropdown() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-[384px] rounded-xl border border-border bg-surface-secondary shadow-lg z-50">
+        <div role="menu" aria-label="Notificaciones" className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-[384px] rounded-xl border border-border bg-surface-secondary shadow-lg z-50">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <h3 className="text-sm font-semibold text-text">{i("alerts.title")}</h3>
@@ -129,7 +132,7 @@ export function AlertsDropdown() {
                   {i("alerts.markAllRead")}
                 </button>
               )}
-              <button onClick={() => setIsOpen(false)}>
+              <button onClick={() => setIsOpen(false)} aria-label="Cerrar alertas">
                 <X className="h-4 w-4 text-text-muted hover:text-text" />
               </button>
             </div>

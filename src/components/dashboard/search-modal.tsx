@@ -64,6 +64,7 @@ export function SearchModal() {
       <button
         onClick={() => setOpen(true)}
         className="flex items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-sm text-text-muted hover:border-brand-200 transition w-48 lg:w-64"
+        aria-label="Buscar (⌘K)"
       >
         <Search className="h-4 w-4" />
         <span className="flex-1 text-left truncate">{i("search.placeholder")}</span>
@@ -79,7 +80,7 @@ export function SearchModal() {
             className="fixed inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setOpen(false)}
           />
-          <div className="relative z-10 w-full max-w-lg mx-4 rounded-2xl bg-surface-secondary border border-border shadow-2xl overflow-hidden">
+          <div role="dialog" aria-modal="true" aria-label="Búsqueda global" className="relative z-10 w-full max-w-lg mx-4 rounded-2xl bg-surface-secondary border border-border shadow-2xl overflow-hidden">
             {/* Search input */}
             <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
               <Search className="h-5 w-5 text-text-muted flex-shrink-0" />
@@ -91,7 +92,7 @@ export function SearchModal() {
                 className="flex-1 bg-transparent text-sm text-text outline-none placeholder:text-text-muted"
               />
               {query && (
-                <button onClick={() => setQuery("")} className="p-1 hover:bg-surface-tertiary rounded">
+                <button onClick={() => setQuery("")} className="p-1 hover:bg-surface-tertiary rounded" aria-label="Limpiar búsqueda">
                   <X className="h-4 w-4 text-text-muted" />
                 </button>
               )}

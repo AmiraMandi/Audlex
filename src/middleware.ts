@@ -2,6 +2,9 @@ import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
 // ─── Simple in-memory rate limiter ─────────────────────────────
+// NOTE: This is a placeholder for MVP. In serverless (Vercel), each invocation
+// may be a different instance, so this Map doesn't persist across requests.
+// For production, replace with Upstash Redis (@upstash/ratelimit) or Vercel KV.
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_WINDOW = 60_000; // 1 minute
 const RATE_LIMIT_MAX_API = 60; // 60 requests per minute for API routes
@@ -28,13 +31,8 @@ function isRateLimited(key: string, max: number): boolean {
   return entry.count > max;
 }
 
-// Periodically clean up old entries (every 5 minutes)
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of rateLimitMap) {
-    if (now > entry.resetAt) rateLimitMap.delete(key);
-  }
-}, 5 * 60 * 1000);
+// Cleanup is handled inline — expired entries are reset on next access.
+// setInterval does not work in serverless environments.
 
 // ─── Security headers ─────────────────────────────────────────
 function addSecurityHeaders(response: NextResponse): NextResponse {
@@ -51,7 +49,7 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
+      "script-src 'self' 'unsafe-inline' https://js.stripe.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://*.supabase.co https://*.stripe.com https://lh3.googleusercontent.com",
       "font-src 'self' data:",

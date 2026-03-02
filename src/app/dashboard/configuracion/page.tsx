@@ -329,8 +329,10 @@ export default function ConfiguracionPage() {
                             <option value="viewer">{i("cfg.roleViewer")}</option>
                           </select>
                           <button
-                            onClick={async () => {
+                            onClick={async (e) => {
                               if (!confirm(i("cfg.removeConfirm", { name: member.name || "" }))) return;
+                              const btn = e.currentTarget;
+                              btn.disabled = true;
                               try {
                                 await removeTeamMember(member.id);
                                 setTeamMembers((prev) => prev.filter((m) => m.id !== member.id));
@@ -338,9 +340,10 @@ export default function ConfiguracionPage() {
                               } catch (err: unknown) {
                                 const message = err instanceof Error ? err.message : i("cfg.saveError");
                                 toast.error(message);
+                                btn.disabled = false;
                               }
                             }}
-                            className="p-1.5 rounded-lg text-text-muted hover:text-red-500 hover:bg-red-500/10 transition"
+                            className="p-1.5 rounded-lg text-text-muted hover:text-red-500 hover:bg-red-500/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
                             title={i("cfg.inviteMember")}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -505,15 +508,25 @@ export default function ConfiguracionPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={async () => {
-                      const supabase = createSupabaseBrowser();
-                      const { data: { user } } = await supabase.auth.getUser();
-                      if (!user?.email) return;
-                      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-                        redirectTo: `${window.location.origin}/api/auth/callback`,
-                      });
-                      if (error) toast.error(error.message);
-                      else toast.success(i("cfg.passwordResetSent"));
+                    onClick={async (e) => {
+                      const btn = e.currentTarget;
+                      btn.disabled = true;
+                      btn.textContent = "...";
+                      try {
+                        const supabase = createSupabaseBrowser();
+                        const { data: { user } } = await supabase.auth.getUser();
+                        if (!user?.email) { btn.disabled = false; btn.textContent = i("cfg.change"); return; }
+                        const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+                          redirectTo: `${window.location.origin}/api/auth/callback`,
+                        });
+                        if (error) toast.error(error.message);
+                        else toast.success(i("cfg.passwordResetSent"));
+                      } catch {
+                        toast.error(i("cfg.saveError"));
+                      } finally {
+                        btn.disabled = false;
+                        btn.textContent = i("cfg.change");
+                      }
                     }}
                   >
                     {i("cfg.change")}

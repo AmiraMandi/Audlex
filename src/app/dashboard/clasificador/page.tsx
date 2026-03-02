@@ -20,10 +20,10 @@ import { useLocale } from "@/hooks/use-locale";
 import { td } from "@/lib/i18n/dashboard-translations";
 
 const riskConfig: Record<RiskLevel, { color: string; bg: string; border: string; icon: typeof Shield }> = {
-  unacceptable: { color: "text-red-700", bg: "bg-red-50", border: "border-red-200", icon: XCircle },
-  high: { color: "text-orange-700", bg: "bg-orange-50", border: "border-orange-200", icon: AlertTriangle },
-  limited: { color: "text-yellow-700", bg: "bg-yellow-50", border: "border-yellow-200", icon: Info },
-  minimal: { color: "text-green-700", bg: "bg-green-50", border: "border-green-200", icon: CheckCircle2 },
+  unacceptable: { color: "text-red-700 dark:text-red-400", bg: "bg-red-50 dark:bg-red-950/40", border: "border-red-200 dark:border-red-800", icon: XCircle },
+  high: { color: "text-orange-700 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-950/40", border: "border-orange-200 dark:border-orange-800", icon: AlertTriangle },
+  limited: { color: "text-yellow-700 dark:text-yellow-400", bg: "bg-yellow-50 dark:bg-yellow-950/40", border: "border-yellow-200 dark:border-yellow-800", icon: Info },
+  minimal: { color: "text-green-700 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/40", border: "border-green-200 dark:border-green-800", icon: CheckCircle2 },
 };
 
 export default function ClasificadorPage() {
@@ -42,6 +42,24 @@ export default function ClasificadorPage() {
   const visibleQuestions = useMemo(() => getVisibleQuestions(answers, locale as Locale), [answers, locale]);
   const progress = useMemo(() => getProgress(answers), [answers]);
   const currentQuestion = visibleQuestions[currentIndex];
+
+  // Persist answers in sessionStorage (fix: don't lose progress on refresh)
+  const storageKey = `classifier-${systemId || "new"}`;
+  useEffect(() => {
+    const saved = sessionStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) setAnswers(parsed);
+      } catch { /* corrupted data, ignore */ }
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (answers.length > 0) {
+      sessionStorage.setItem(storageKey, JSON.stringify(answers));
+    }
+  }, [answers, storageKey]);
 
   function setAnswer(questionId: string, value: string | boolean | string[]) {
     setAnswers((prev) => {
@@ -81,6 +99,7 @@ export default function ClasificadorPage() {
       runClassification(systemId, answers, locale as Locale)
         .then(() => {
           toast.success(i("cls.saved"));
+          sessionStorage.removeItem(storageKey); // Clear persisted answers after successful save
         })
         .catch((err) => {
           toast.error(i("cls.saveError") + (err.message || i("cls.unknownError")));
@@ -93,6 +112,7 @@ export default function ClasificadorPage() {
     setAnswers([]);
     setCurrentIndex(0);
     setResult(null);
+    sessionStorage.removeItem(storageKey);
   }
 
   // --- RESULT VIEW ---
@@ -101,7 +121,7 @@ export default function ClasificadorPage() {
     const RiskIcon = config.icon;
 
     return (
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-3xl mx-auto space-y-6" aria-live="polite" role="status">
         {/* Result Header */}
         <div className={`rounded-2xl ${config.bg} ${config.border} border p-8 text-center`}>
           <RiskIcon className={`h-16 w-16 mx-auto mb-4 ${config.color}`} />

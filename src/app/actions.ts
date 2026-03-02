@@ -131,7 +131,12 @@ export async function provisionUser(
   // Send welcome email (non-blocking)
   try {
     const { sendWelcomeEmail } = await import("@/lib/email");
-    await sendWelcomeEmail({ to: email, name, locale: "es" });
+    // Detect locale from headers (default to "es")
+    const { headers } = await import("next/headers");
+    const headerStore = await headers();
+    const acceptLang = headerStore.get("accept-language") || "";
+    const locale = acceptLang.toLowerCase().startsWith("en") ? "en" : "es";
+    await sendWelcomeEmail({ to: email, name, locale });
   } catch {
     console.error("Failed to send welcome email");
   }
@@ -226,7 +231,7 @@ export async function getAiSystemsWithRisk() {
     .where(eq(aiSystems.organizationId, user.organizationId))
     .orderBy(desc(aiSystems.createdAt));
 
-  // Get latest risk assessment per system in one query
+  // Get latest risk assessment per system in one query (ordered by date desc)
   const assessments = await db
     .select({
       aiSystemId: riskAssessments.aiSystemId,
@@ -234,7 +239,8 @@ export async function getAiSystemsWithRisk() {
       isProhibited: riskAssessments.isProhibited,
     })
     .from(riskAssessments)
-    .where(eq(riskAssessments.organizationId, user.organizationId));
+    .where(eq(riskAssessments.organizationId, user.organizationId))
+    .orderBy(desc(riskAssessments.assessedAt));
 
   // Build a map: systemId -> latest risk level
   const riskMap = new Map<string, { riskLevel: string; isProhibited: boolean }>();
@@ -271,11 +277,15 @@ export async function getAiSystem(id: string) {
 
 export async function updateAiSystem(id: string, input: Partial<CreateSystemInput>) {
   const user = await getCurrentUser();
+  assertPermission(user.role as UserRole, "systems.update");
+
+  // Validate and sanitize input — only allow known fields
+  const parsed = createSystemSchema.partial().parse(input);
 
   const [updated] = await db
     .update(aiSystems)
     .set({
-      ...input,
+      ...parsed,
       updatedAt: new Date(),
     })
     .where(
@@ -285,6 +295,8 @@ export async function updateAiSystem(id: string, input: Partial<CreateSystemInpu
       )
     )
     .returning();
+
+  await logAction(user.id, user.organizationId, "ai_system.updated", "aiSystem", id);
 
   revalidatePath("/dashboard/inventario");
   revalidatePath("/dashboard");
@@ -1193,8 +1205,24 @@ export async function deleteAccount() {
   const user = await getCurrentUser();
   const supabase = await createSupabaseServer();
 
+  // Log before deletion (audit trail)
+  await logAction(user.id, user.organizationId, "account.deleted", "user", user.id);
+
   // Delete org (cascades to all child records)
   await db.delete(organizations).where(eq(organizations.id, user.organizationId));
+
+  // Delete user from Supabase Auth (requires service role)
+  // Uses admin API to fully remove the auth record
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+    await supabaseAdmin.auth.admin.deleteUser(user.authProviderId);
+  } catch (err) {
+    console.error("Failed to delete Supabase Auth user:", err);
+  }
 
   // Sign out the user
   await supabase.auth.signOut();

@@ -183,6 +183,7 @@ export const riskAssessments = pgTable("risk_assessments", {
   assessedBy: uuid("assessed_by").references(() => users.id),
   version: integer("version").notNull().default(1),
   assessedAt: timestamp("assessed_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
   index("idx_risk_assessments_system_id").on(t.aiSystemId),
   index("idx_risk_assessments_org_id").on(t.organizationId),
