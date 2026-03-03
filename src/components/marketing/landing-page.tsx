@@ -21,11 +21,11 @@ import { useLocale } from "@/hooks/use-locale";
 import type { Locale } from "@/lib/i18n/translations";
 
 // Lazy-load below-fold sections — they download AFTER the hero paints
-const PricingSection = lazy(
-  () => import("@/components/marketing/sections/pricing-section")
-);
 const BelowFoldSections = lazy(() =>
-  import("@/components/marketing/sections/below-fold-sections").then((m) => ({
+  Promise.all([
+    import("@/components/marketing/sections/below-fold-sections"),
+    import("@/components/marketing/sections/pricing-section"),
+  ]).then(([m, p]) => ({
     default: ({
       locale,
       i,
@@ -39,6 +39,7 @@ const BelowFoldSections = lazy(() =>
     }) => (
       <>
         <m.SecuritySection locale={locale} i={i} />
+        <p.default locale={locale} i={i} />
         <m.ConsultorasSection locale={locale} i={i} />
         <m.IndustrySection locale={locale} i={i} />
         <m.FaqSection locale={locale} i={i} />
@@ -417,7 +418,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Below-fold heavy sections — lazy loaded */}
+      {/* Below-fold sections — lazy loaded in correct order */}
       <Suspense fallback={<SectionSkeleton />}>
         <BelowFoldSections
           locale={locale}
@@ -425,11 +426,6 @@ export default function HomePage() {
           isDark={isDark}
           days={days}
         />
-      </Suspense>
-
-      {/* Pricing — lazy loaded (has its own state for toggle) */}
-      <Suspense fallback={<SectionSkeleton />}>
-        <PricingSection locale={locale} i={i} />
       </Suspense>
     </div>
   );
