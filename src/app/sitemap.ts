@@ -1,7 +1,7 @@
 import { MetadataRoute } from "next";
 import { blogPosts } from "@/lib/blog-posts";
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://audlex.com";
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.audlex.com";
 
 /**
  * Generate sitemap.xml for SEO
@@ -34,6 +34,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${BASE_URL}/blog`,
       lastModified: currentDate,
       changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: `${BASE_URL}/demo`,
+      lastModified: currentDate,
+      changeFrequency: "monthly",
       priority: 0.9,
     },
   ];

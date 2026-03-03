@@ -132,9 +132,21 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const article = articles[slug];
   if (!article) return { title: "Artículo no encontrado" };
+  const description = article.content.find((b) => b.type === "p")?.text as string;
   return {
     title: `${article.title} | Audlex Blog`,
-    description: article.content.find((b) => b.type === "p")?.text as string,
+    description,
+    alternates: {
+      canonical: `/blog/${slug}`,
+    },
+    openGraph: {
+      title: article.title,
+      description,
+      type: "article",
+      publishedTime: article.date,
+      authors: ["Audlex"],
+      tags: [article.category, "EU AI Act", "compliance", "inteligencia artificial"],
+    },
   };
 }
 
@@ -143,5 +155,42 @@ export default async function BlogArticlePage({ params }: { params: Promise<{ sl
   const article = articles[slug];
   if (!article) notFound();
 
-  return <BlogArticleContent article={article} />;
+  const articleJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": article.title,
+    "datePublished": article.date,
+    "dateModified": article.date,
+    "author": {
+      "@type": "Organization",
+      "name": "Audlex",
+      "url": "https://www.audlex.com",
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Audlex",
+      "url": "https://www.audlex.com",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.audlex.com/logo.png",
+      },
+    },
+    "description": article.content.find((b) => b.type === "p")?.text,
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": `https://www.audlex.com/blog/${slug}`,
+    },
+    "articleSection": article.category,
+    "inLanguage": "es",
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
+      <BlogArticleContent article={article} />
+    </>
+  );
 }

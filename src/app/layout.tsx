@@ -12,7 +12,15 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://audlex.com"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://www.audlex.com"),
+  alternates: {
+    canonical: "/",
+    languages: {
+      "es": "/",
+      "en": "/",
+      "x-default": "/",
+    },
+  },
   title: {
     default: "Audlex — Cumplimiento del EU AI Act para tu empresa",
     template: "%s | Audlex",
@@ -42,7 +50,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "es_ES",
-    url: "https://audlex.com",
+    url: "https://www.audlex.com",
     siteName: "Audlex",
     title: "Audlex — Cumplimiento del EU AI Act",
     description:
@@ -74,8 +82,39 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='dark')document.documentElement.classList.add('dark');var l=localStorage.getItem('locale');if(l)document.documentElement.lang=l}catch(e){}})()`,
           }}
+        />        {/* JSON-LD: Organization */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "Audlex",
+            "url": "https://www.audlex.com",
+            "logo": "https://www.audlex.com/logo.svg",
+            "description": "Plataforma de compliance con el EU AI Act para empresas. Clasifica tus sistemas de IA, genera documentación y cumple con la normativa europea.",
+            "foundingDate": "2025",
+            "sameAs": []
+          }) }}
         />
-      </head>
+        {/* JSON-LD: SoftwareApplication */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "Audlex",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Web",
+            "description": "Plataforma SaaS para el cumplimiento del EU AI Act. Clasifica sistemas de IA, genera documentación técnica y gestiona compliance.",
+            "url": "https://www.audlex.com",
+            "offers": [
+              { "@type": "Offer", "price": "0", "priceCurrency": "EUR", "name": "Gratis" },
+              { "@type": "Offer", "price": "69", "priceCurrency": "EUR", "name": "Starter", "billingIncrement": "P1M" },
+              { "@type": "Offer", "price": "199", "priceCurrency": "EUR", "name": "Business", "billingIncrement": "P1M" },
+              { "@type": "Offer", "price": "499", "priceCurrency": "EUR", "name": "Enterprise", "billingIncrement": "P1M" }
+            ]
+          }) }}
+        />      </head>
       <body className="min-h-screen font-sans">
         <LocaleProvider>
           {children}
