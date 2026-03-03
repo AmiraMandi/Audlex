@@ -243,3 +243,44 @@
   }
 }
 
+/* ── Mobile performance: disable GPU-heavy effects ── */
+@media (max-width: 768px) {
+  .animate-float {
+    animation: none !important;
+  }
+
+  .mesh-gradient,
+  .grid-pattern,
+  .dot-pattern {
+    display: none !important;
+  }
+
+  .glass-premium {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--surface) !important;
+  }
+
+  .card-modern {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .gradient-text {
+    animation: none !important;
+    background-size: 100% auto !important;
+  }
+
+  /* Kill heavy blur orbs on mobile */
+  [class*="blur-[128px]"],
+  [class*="blur-[96px]"],
+  [class*="blur-3xl"] {
+    display: none !important;
+  }
+
+  /* Disable hover scale transforms on mobile (reduces layout thrashing) */
+  .card-modern:hover {
+    transform: none !important;
+  }
+}
+
