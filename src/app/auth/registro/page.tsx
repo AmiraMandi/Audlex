@@ -90,6 +90,7 @@ export default function RegistroPage() {
         throw new Error(data.error || (locale === "es" ? "Error al crear la organización" : "Error creating organisation"));
       }
 
+      router.refresh();
       router.push("/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : (locale === "es" ? "Error desconocido" : "Unknown error"));

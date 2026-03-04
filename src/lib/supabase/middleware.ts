@@ -4,6 +4,16 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
+  // Si Supabase redirige un code de verificación de email al root "/",
+  // reenviamos al callback handler para que lo procese correctamente
+  const { pathname, searchParams } = request.nextUrl;
+  const code = searchParams.get("code");
+  if (pathname === "/" && code) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/api/auth/callback";
+    return NextResponse.redirect(url);
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -40,11 +50,12 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Si ya logueado, redirigir login/registro al dashboard
-  const authPaths = ["/login", "/registro"];
-  const isAuthPage = authPaths.some((p) => request.nextUrl.pathname.startsWith(p));
+  // Si ya logueado, redirigir landing/login/registro al dashboard
+  const authPaths = ["/login", "/registro", "/auth/login", "/auth/registro"];
+  const isAuthPage = authPaths.some((p) => pathname.startsWith(p));
+  const isLanding = pathname === "/";
 
-  if (isAuthPage && user) {
+  if ((isAuthPage || isLanding) && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
