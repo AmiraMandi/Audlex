@@ -94,10 +94,12 @@ export default function OnboardingPage() {
         }),
       });
       if (!res.ok) throw new Error("Failed to save");
+      router.refresh();
       router.push("/dashboard");
     } catch (err) {
       console.error(err);
       // Navigate anyway
+      router.refresh();
       router.push("/dashboard");
     } finally {
       setSaving(false);
@@ -127,6 +129,7 @@ export default function OnboardingPage() {
                   body: JSON.stringify({}),
                 });
               } catch {}
+              router.refresh();
               router.push("/dashboard");
             }}
             className="text-sm text-text-muted hover:text-text transition"
