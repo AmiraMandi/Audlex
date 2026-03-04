@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Settings, Building2, Users, CreditCard, Shield, Save, ExternalLink, UserPlus, Trash2, Crown, Download, Bell, User, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { Modal } from "@/components/ui/modal";
 import { getCurrentOrganization, updateOrganization, getTeamMembers, inviteTeamMember, updateTeamMemberRole, removeTeamMember, exportUserData, deleteAccount, updateProfile, getAuditLog } from "@/app/actions";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 import { useLocale } from "@/hooks/use-locale";
 import { td } from "@/lib/i18n/dashboard-translations";
 import type { Organization, TeamMember } from "@/types";
@@ -65,10 +67,29 @@ export default function ConfiguracionPage() {
   });
 
   const { locale } = useLocale();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const i = (key: string, r?: Record<string, string | number>) => td(locale, key, r);
 
   const sectorOptions = SECTOR_VALUES.map((v) => ({ value: v, label: i(`cfg.sector.${v}`) }));
   const sizeOptions = SIZE_VALUES.map((v) => ({ value: v, label: i(`cfg.size.${v}`) }));
+
+  // Reload org data helper
+  const reloadOrg = useCallback(async () => {
+    const data = await getCurrentOrganization();
+    if (data) {
+      setOrg(data);
+      setForm({
+        name: data.name || "",
+        cifNif: data.cifNif || "",
+        sector: data.sector || "",
+        sectorDescription: data.sectorDescription || "",
+        size: (data.size || "micro") as "micro" | "small" | "medium" | "large",
+        website: data.website || "",
+      });
+    }
+    return data;
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -97,6 +118,48 @@ export default function ConfiguracionPage() {
     }
     load();
   }, []);
+
+  // Handle return from Stripe checkout
+  useEffect(() => {
+    const checkout = searchParams.get("checkout");
+    if (checkout === "success") {
+      setActiveTab("plan");
+      toast.success(locale === "en" ? "Payment completed! Your plan is being activated..." : "¡Pago completado! Tu plan se está activando...");
+      // Clean up URL
+      router.replace("/dashboard/configuracion?tab=plan", { scroll: false });
+      // Poll for updated plan (webhook may take a few seconds)
+      let attempts = 0;
+      const maxAttempts = 10;
+      const poll = setInterval(async () => {
+        attempts++;
+        try {
+          const data = await reloadOrg();
+          if (data && data.plan !== "free") {
+            clearInterval(poll);
+            toast.success(locale === "en" ? `Plan upgraded to ${planLabels[data.plan]?.label || data.plan}!` : `¡Plan actualizado a ${planLabels[data.plan]?.label || data.plan}!`);
+          } else if (attempts >= maxAttempts) {
+            clearInterval(poll);
+            toast.error(locale === "en" ? "Plan update is taking longer than expected. Please refresh the page in a minute." : "La actualización del plan está tardando más de lo esperado. Actualiza la página en un minuto.");
+          }
+        } catch {
+          if (attempts >= maxAttempts) clearInterval(poll);
+        }
+      }, 3000);
+      return () => clearInterval(poll);
+    } else if (checkout === "cancelled") {
+      setActiveTab("plan");
+      toast.error(locale === "en" ? "Checkout was cancelled" : "El pago fue cancelado");
+      router.replace("/dashboard/configuracion?tab=plan", { scroll: false });
+    }
+  }, [searchParams, locale, router, reloadOrg]);
+
+  // Handle tab from URL
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab && ["organization", "team", "plan", "security", "audit"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   async function handleSave() {
     setSaving(true);
