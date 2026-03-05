@@ -1,12 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ArrowUp, ArrowDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 type PlanKey = "starter" | "business" | "enterprise" | "consultora";
+
+// Plan hierarchy for upgrade/downgrade comparison
+const PLAN_ORDER: Record<string, number> = {
+  free: 0,
+  starter: 1,
+  business: 2,
+  consultora: 3,
+  enterprise: 4,
+};
 
 interface Plan {
   key: PlanKey;
@@ -79,42 +88,67 @@ const PLANS: Plan[] = [
 ];
 
 interface PlanUpgradeCardsProps {
+  currentPlan?: string;
   onUpgrade?: () => void;
 }
 
-export function PlanUpgradeCards({ onUpgrade }: PlanUpgradeCardsProps) {
+export function PlanUpgradeCards({ currentPlan = "free", onUpgrade }: PlanUpgradeCardsProps) {
   const [loading, setLoading] = useState<PlanKey | null>(null);
   const [isAnnual, setIsAnnual] = useState(false);
 
-  const handleUpgrade = async (planKey: PlanKey) => {
+  const currentOrder = PLAN_ORDER[currentPlan] ?? 0;
+
+  const getButtonState = (planKey: PlanKey) => {
+    if (planKey === currentPlan) return "current";
+    const planOrder = PLAN_ORDER[planKey] ?? 0;
+    return planOrder > currentOrder ? "upgrade" : "downgrade";
+  };
+
+  const handleChangePlan = async (planKey: PlanKey) => {
+    const state = getButtonState(planKey);
+    if (state === "current") return;
+
     setLoading(planKey);
 
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planKey, locale: "es", isAnnual }),
+        body: JSON.stringify({ 
+          plan: planKey, 
+          locale: "es", 
+          isAnnual,
+          changePlan: currentPlan !== "free", // Signal this is a plan change, not new subscription
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Error al crear sesión de pago");
+        toast.error(data.error || "Error al procesar el cambio de plan");
         setLoading(null);
         return;
       }
 
-      // Redirect to Stripe Checkout
+      // If plan was changed directly (subscription update), reload
+      if (data.changed) {
+        toast.success(data.message || "¡Plan actualizado!");
+        onUpgrade?.();
+        setLoading(null);
+        return;
+      }
+
+      // Redirect to Stripe Checkout (for new subscriptions)
       if (data.url) {
         window.location.href = data.url;
         onUpgrade?.();
       } else {
-        toast.error("No se pudo crear la sesión de pago");
+        toast.error("No se pudo procesar el cambio");
         setLoading(null);
       }
     } catch (error) {
-      console.error("Checkout error:", error);
-      toast.error("Error al procesar el pago");
+      console.error("Plan change error:", error);
+      toast.error("Error al procesar el cambio");
       setLoading(null);
     }
   };
@@ -154,53 +188,85 @@ export function PlanUpgradeCards({ onUpgrade }: PlanUpgradeCardsProps) {
 
       {/* Plans grid */}
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {PLANS.map((plan) => (
-        <div
-          key={plan.key}
-          className={`relative rounded-xl border p-5 flex flex-col transition-all ${
-            plan.popular
-              ? "border-brand-500 bg-brand-500/5 ring-1 ring-brand-500/20"
-              : "border-border bg-surface-secondary"
-          }`}
-        >
-          {plan.popular && (
-            <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
-              <span className="rounded-full bg-brand-500 px-2.5 py-0.5 text-xs font-semibold text-white shadow-lg">
-                Más popular
+      {PLANS.map((plan) => {
+        const state = getButtonState(plan.key);
+        const isCurrent = state === "current";
+
+        return (
+          <div
+            key={plan.key}
+            className={cn(
+              "relative rounded-xl border p-5 flex flex-col transition-all",
+              isCurrent
+                ? "border-brand-500 bg-brand-500/5 ring-2 ring-brand-500/30"
+                : plan.popular
+                  ? "border-brand-500/50 bg-brand-500/5 ring-1 ring-brand-500/20"
+                  : "border-border bg-surface-secondary"
+            )}
+          >
+            {isCurrent && (
+              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
+                <span className="rounded-full bg-brand-500 px-2.5 py-0.5 text-xs font-semibold text-white shadow-lg">
+                  Tu plan actual
+                </span>
+              </div>
+            )}
+            {!isCurrent && plan.popular && (
+              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
+                <span className="rounded-full bg-brand-500 px-2.5 py-0.5 text-xs font-semibold text-white shadow-lg">
+                  Más popular
+                </span>
+              </div>
+            )}
+            <div className="mb-3">
+              <h3 className="font-semibold text-text text-lg">{plan.name}</h3>
+              <p className="text-xs text-text-muted">{plan.description}</p>
+            </div>
+            <div className="mb-4">
+              <span className="text-2xl font-bold text-text">
+                {isAnnual ? plan.priceAnnual : plan.priceMonthly}
+              </span>
+              <span className="text-sm text-text-muted ml-1">
+                {isAnnual ? "/año" : "/mes"}
               </span>
             </div>
-          )}
-          <div className="mb-3">
-            <h3 className="font-semibold text-text text-lg">{plan.name}</h3>
-            <p className="text-xs text-text-muted">{plan.description}</p>
+            <ul className="space-y-2 mb-6 flex-1">
+              {plan.features.map((f) => (
+                <li key={f} className="flex items-start gap-1.5 text-xs text-text-secondary">
+                  <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-green-500 flex-shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            {isCurrent ? (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled
+                className="w-full opacity-70"
+              >
+                <Check className="h-4 w-4" />
+                Plan actual
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant={state === "upgrade" ? "default" : "outline"}
+                loading={loading === plan.key}
+                onClick={() => handleChangePlan(plan.key)}
+                className="w-full"
+              >
+                {loading === plan.key 
+                  ? "Procesando..." 
+                  : state === "upgrade" 
+                    ? <><ArrowUp className="h-4 w-4" /> Mejorar plan</>
+                    : <><ArrowDown className="h-4 w-4" /> Cambiar plan</>
+                }
+              </Button>
+            )}
           </div>
-          <div className="mb-4">
-            <span className="text-2xl font-bold text-text">
-              {isAnnual ? plan.priceAnnual : plan.priceMonthly}
-            </span>
-            <span className="text-sm text-text-muted ml-1">
-              {isAnnual ? "/año" : "/mes"}
-            </span>
-          </div>
-          <ul className="space-y-2 mb-6 flex-1">
-            {plan.features.map((f) => (
-              <li key={f} className="flex items-start gap-1.5 text-xs text-text-secondary">
-                <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-green-500 flex-shrink-0" />
-                {f}
-              </li>
-            ))}
-          </ul>
-          <Button
-            size="sm"
-            variant={plan.popular ? "default" : "outline"}
-            loading={loading === plan.key}
-            onClick={() => handleUpgrade(plan.key)}
-            className="w-full"
-          >
-            {loading === plan.key ? "Procesando..." : "Seleccionar"}
-          </Button>
-        </div>
-      ))}
+        );
+      })}
       </div>
     </div>
   );

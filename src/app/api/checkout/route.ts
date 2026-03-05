@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { organizations, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
+import type { PlanType } from "@/types";
+
 export const dynamic = "force-dynamic";
 
 function msg(locale: string, es: string, en: string) { return locale === "en" ? en : es; }
@@ -12,14 +14,15 @@ function msg(locale: string, es: string, en: string) { return locale === "en" ? 
 export async function POST(request: Request) {
   let locale = "es";
   try {
-    const { plan, locale: reqLocale, isAnnual } = (await request.json()) as { 
+    const { plan, locale: reqLocale, isAnnual, changePlan } = (await request.json()) as { 
       plan: PlanKey; 
       locale?: string;
       isAnnual?: boolean;
+      changePlan?: boolean;
     };
     locale = reqLocale === "en" ? "en" : "es";
 
-    console.log("[Checkout] Request:", { plan, isAnnual, locale });
+    console.log("[Checkout] Request:", { plan, isAnnual, locale, changePlan });
 
     if (!plan || !PLANS[plan]) {
       return NextResponse.json({ error: msg(locale, "Plan inválido", "Invalid plan") }, { status: 400 });
@@ -47,21 +50,6 @@ export async function POST(request: Request) {
     const org = dbUser.organization;
     console.log("[Checkout] Org:", { id: org.id, plan: org.plan, stripeCustomerId: org.stripeCustomerId, stripeSubscriptionId: org.stripeSubscriptionId });
 
-    // Prevent duplicate subscriptions: check if org already has an active subscription
-    if (org.stripeSubscriptionId) {
-      try {
-        const existingSub = await getStripe().subscriptions.retrieve(org.stripeSubscriptionId);
-        if (existingSub.status === "active" || existingSub.status === "trialing") {
-          return NextResponse.json(
-            { error: msg(locale, "Ya tienes una suscripción activa. Ve a 'Gestionar suscripción' para cambiar de plan.", "You already have an active subscription. Go to 'Manage subscription' to change plans.") },
-            { status: 400 }
-          );
-        }
-      } catch (subError) {
-        console.log("[Checkout] Existing subscription check failed (OK, creating new):", subError instanceof Error ? subError.message : subError);
-      }
-    }
-
     const planInfo = PLANS[plan];
     const priceId = isAnnual ? planInfo.priceIdAnnual : planInfo.priceIdMonthly;
     
@@ -71,6 +59,76 @@ export async function POST(request: Request) {
       return NextResponse.json({ 
         error: msg(locale, `Precio no configurado para el plan ${plan}${isAnnual ? " anual" : ""}. Contacta soporte.`, `Price not configured for ${plan}${isAnnual ? " annual" : ""} plan. Contact support.`) 
       }, { status: 500 });
+    }
+
+    // If user already has an active subscription, update it (upgrade/downgrade)
+    if (org.stripeSubscriptionId && changePlan) {
+      try {
+        const existingSub = await getStripe().subscriptions.retrieve(org.stripeSubscriptionId);
+        
+        if (existingSub.status === "active" || existingSub.status === "trialing") {
+          console.log("[Checkout] Updating existing subscription:", existingSub.id, "to priceId:", priceId);
+          
+          // Update the subscription to the new price
+          const updatedSub = await getStripe().subscriptions.update(existingSub.id, {
+            items: [{
+              id: existingSub.items.data[0].id,
+              price: priceId,
+            }],
+            proration_behavior: "create_prorations", // Charge/credit the difference
+          });
+
+          console.log("[Checkout] Subscription updated:", updatedSub.id, "status:", updatedSub.status);
+
+          // Plan limits mapping
+          const planLimits: Record<string, { maxSystems: number; maxUsers: number }> = {
+            starter: { maxSystems: 5, maxUsers: 2 },
+            business: { maxSystems: 25, maxUsers: 5 },
+            enterprise: { maxSystems: -1, maxUsers: -1 },
+            consultora: { maxSystems: -1, maxUsers: -1 },
+          };
+
+          const limits = planLimits[plan] || { maxSystems: 1, maxUsers: 1 };
+
+          // Update org in DB immediately
+          await db
+            .update(organizations)
+            .set({
+              plan: plan as PlanType,
+              maxAiSystems: limits.maxSystems,
+              maxUsers: limits.maxUsers,
+              updatedAt: new Date(),
+            })
+            .where(eq(organizations.id, org.id));
+
+          console.log("[Checkout] DB updated to plan:", plan);
+
+          const planName = PLANS[plan].name;
+          return NextResponse.json({ 
+            changed: true, 
+            plan,
+            message: msg(locale, `¡Plan cambiado a ${planName}! Los cambios se aplican inmediatamente.`, `Plan changed to ${planName}! Changes apply immediately.`),
+          });
+        }
+      } catch (subError) {
+        console.log("[Checkout] Subscription update failed, falling through to new checkout:", subError instanceof Error ? subError.message : subError);
+        // Fall through to create a new checkout session
+      }
+    }
+
+    // For new subscriptions (no existing sub or changePlan=false)
+    if (org.stripeSubscriptionId && !changePlan) {
+      try {
+        const existingSub = await getStripe().subscriptions.retrieve(org.stripeSubscriptionId);
+        if (existingSub.status === "active" || existingSub.status === "trialing") {
+          return NextResponse.json(
+            { error: msg(locale, "Ya tienes una suscripción activa. Usa 'Cambiar plan' para modificarla.", "You already have an active subscription. Use 'Change plan' to modify it.") },
+            { status: 400 }
+          );
+        }
+      } catch {
+        // Subscription doesn't exist anymore, OK to create new
+      }
     }
 
     const origin = new URL(request.url).origin;
@@ -95,7 +153,7 @@ export async function POST(request: Request) {
         console.log("[Checkout] Created Stripe customer:", customerId);
       } catch (custError) {
         console.error("[Checkout] Failed to create customer, falling back to customer_email:", custError);
-        customerId = undefined; // Fall back to customer_email mode
+        customerId = undefined;
       }
     }
 

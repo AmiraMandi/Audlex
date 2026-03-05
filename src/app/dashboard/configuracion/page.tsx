@@ -540,19 +540,22 @@ export default function ConfiguracionPage() {
             </CardContent>
           </Card>
 
-          {org?.plan === "free" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>{i("cfg.upgradePlan")}</CardTitle>
-                <CardDescription>
-                  Selecciona el plan que mejor se adapte a tus necesidades
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <PlanUpgradeCards />
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {org?.plan === "free" ? i("cfg.upgradePlan") : (locale === "en" ? "Change plan" : "Cambiar plan")}
+              </CardTitle>
+              <CardDescription>
+                {org?.plan === "free"
+                  ? (locale === "en" ? "Select the plan that best fits your needs" : "Selecciona el plan que mejor se adapte a tus necesidades")
+                  : (locale === "en" ? "Upgrade or change your current plan" : "Mejora o cambia tu plan actual")
+                }
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PlanUpgradeCards currentPlan={org?.plan || "free"} onUpgrade={() => reloadOrg()} />
+            </CardContent>
+          </Card>
 
           {org?.stripeCustomerId && (
             <Card>
