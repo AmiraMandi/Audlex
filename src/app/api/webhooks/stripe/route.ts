@@ -30,16 +30,35 @@ const MAX_PROCESSED = 1000;
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  // Debug: log that the webhook was hit
+  console.log("[Stripe Webhook] Received request");
+
   const body = await request.text();
-  const sig = request.headers.get("stripe-signature")!;
+  const sig = request.headers.get("stripe-signature");
+
+  if (!sig) {
+    console.error("[Stripe Webhook] No stripe-signature header present");
+    return NextResponse.json({ error: "No signature" }, { status: 400 });
+  }
+
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error("[Stripe Webhook] STRIPE_WEBHOOK_SECRET is not set in environment variables");
+    return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
+  }
 
   let event: Stripe.Event;
   try {
-    event = getStripe().webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
+    event = getStripe().webhooks.constructEvent(body, sig, webhookSecret);
   } catch (err) {
-    console.error("Webhook signature verification failed:", err);
-    return NextResponse.json({ error: "Webhook error" }, { status: 400 });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[Stripe Webhook] Signature verification FAILED:", message);
+    console.error("[Stripe Webhook] Secret starts with:", webhookSecret.substring(0, 10) + "...");
+    console.error("[Stripe Webhook] Sig starts with:", sig.substring(0, 20) + "...");
+    return NextResponse.json({ error: "Webhook signature verification failed" }, { status: 400 });
   }
+
+  console.log("[Stripe Webhook] Verified event:", event.type, "id:", event.id);
 
   // Idempotency: skip already-processed events
   if (processedEvents.has(event.id)) {
@@ -60,14 +79,17 @@ export async function POST(request: Request) {
         const subscriptionId = session.subscription as string;
         const orgId = session.metadata?.organizationId;
 
+        console.log("[Stripe Webhook] checkout.session.completed:", { customerId, subscriptionId, orgId });
+
         if (subscriptionId) {
           const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
           const priceId = subscription.items.data[0]?.price.id;
           const planInfo = priceId ? getPlanMapping()[priceId] : null;
 
+          console.log("[Stripe Webhook] priceId:", priceId, "planInfo:", planInfo);
+
           if (planInfo && orgId) {
-            // Use orgId from metadata to avoid race condition with stripeCustomerId
-            await db
+            const result = await db
               .update(organizations)
               .set({
                 plan: planInfo.plan,
@@ -82,7 +104,12 @@ export async function POST(request: Request) {
                   eq(organizations.id, orgId),
                   eq(organizations.stripeCustomerId, customerId)
                 )
-              );
+              )
+              .returning({ id: organizations.id, plan: organizations.plan });
+
+            console.log("[Stripe Webhook] Updated org:", result);
+          } else {
+            console.warn("[Stripe Webhook] Could not map plan. priceId:", priceId, "orgId:", orgId, "Available mappings:", Object.keys(getPlanMapping()));
           }
         }
         break;
@@ -163,9 +190,11 @@ export async function POST(request: Request) {
       }
     }
   } catch (err) {
-    console.error("Webhook processing error:", err);
-    // Still return 200 to prevent Stripe retries for processing errors
+    console.error("[Stripe Webhook] Processing error for event", event.type, ":", err);
+    // Return 500 so Stripe retries this event
+    return NextResponse.json({ error: "Webhook processing error" }, { status: 500 });
   }
 
+  console.log("[Stripe Webhook] Successfully processed:", event.type);
   return NextResponse.json({ received: true });
 }
