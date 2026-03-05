@@ -8,19 +8,26 @@ import { getStripe } from "@/lib/stripe";
 import type { PlanType } from "@/types";
 
 function getPlanMapping(): Record<string, { plan: PlanType; maxSystems: number; maxUsers: number }> {
-  return {
-    // Monthly plans
-    [process.env.STRIPE_PRICE_STARTER || ""]: { plan: "starter", maxSystems: 5, maxUsers: 2 },
-    [process.env.STRIPE_PRICE_BUSINESS || ""]: { plan: "business", maxSystems: 25, maxUsers: 5 },
-    [process.env.STRIPE_PRICE_ENTERPRISE || ""]: { plan: "enterprise", maxSystems: -1, maxUsers: -1 },
-    [process.env.STRIPE_PRICE_CONSULTORA || ""]: { plan: "consultora", maxSystems: -1, maxUsers: -1 },
-    
-    // Annual plans (same limits, just different billing)
-    [process.env.STRIPE_PRICE_STARTER_ANNUAL || ""]: { plan: "starter", maxSystems: 5, maxUsers: 2 },
-    [process.env.STRIPE_PRICE_BUSINESS_ANNUAL || ""]: { plan: "business", maxSystems: 25, maxUsers: 5 },
-    [process.env.STRIPE_PRICE_ENTERPRISE_ANNUAL || ""]: { plan: "enterprise", maxSystems: -1, maxUsers: -1 },
-    [process.env.STRIPE_PRICE_CONSULTORA_ANNUAL || ""]: { plan: "consultora", maxSystems: -1, maxUsers: -1 },
-  };
+  const mapping: Record<string, { plan: PlanType; maxSystems: number; maxUsers: number }> = {};
+  
+  const vars: [string | undefined, PlanType, number, number][] = [
+    [process.env.STRIPE_PRICE_STARTER, "starter", 5, 2],
+    [process.env.STRIPE_PRICE_BUSINESS, "business", 25, 5],
+    [process.env.STRIPE_PRICE_ENTERPRISE, "enterprise", -1, -1],
+    [process.env.STRIPE_PRICE_CONSULTORA, "consultora", -1, -1],
+    [process.env.STRIPE_PRICE_STARTER_ANNUAL, "starter", 5, 2],
+    [process.env.STRIPE_PRICE_BUSINESS_ANNUAL, "business", 25, 5],
+    [process.env.STRIPE_PRICE_ENTERPRISE_ANNUAL, "enterprise", -1, -1],
+    [process.env.STRIPE_PRICE_CONSULTORA_ANNUAL, "consultora", -1, -1],
+  ];
+
+  for (const [priceId, plan, maxSystems, maxUsers] of vars) {
+    if (priceId && priceId.startsWith("price_")) {
+      mapping[priceId] = { plan, maxSystems, maxUsers };
+    }
+  }
+
+  return mapping;
 }
 
 // Simple in-memory idempotency (for serverless, use a DB table in production at scale)

@@ -66,6 +66,8 @@ export default function ConfiguracionPage() {
     website: "",
   });
 
+  const [syncing, setSyncing] = useState(false);
+
   const { locale } = useLocale();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -127,19 +129,43 @@ export default function ConfiguracionPage() {
       toast.success(locale === "en" ? "Payment completed! Your plan is being activated..." : "¡Pago completado! Tu plan se está activando...");
       // Clean up URL
       router.replace("/dashboard/configuracion?tab=plan", { scroll: false });
-      // Poll for updated plan (webhook may take a few seconds)
+
+      // Directly sync plan from Stripe (doesn't depend on webhook)
+      let synced = false;
+      const syncPlan = async () => {
+        try {
+          const res = await fetch("/api/sync-plan", { method: "POST" });
+          const data = await res.json();
+          if (data.synced && data.plan) {
+            synced = true;
+            await reloadOrg();
+            toast.success(locale === "en" ? `Plan upgraded to ${planLabels[data.plan]?.label || data.plan}!` : `¡Plan actualizado a ${planLabels[data.plan]?.label || data.plan}!`);
+          }
+        } catch {
+          // Will retry via polling
+        }
+      };
+
+      // Try syncing immediately, then poll as fallback
+      syncPlan();
+
       let attempts = 0;
-      const maxAttempts = 10;
+      const maxAttempts = 8;
       const poll = setInterval(async () => {
+        if (synced) { clearInterval(poll); return; }
         attempts++;
         try {
-          const data = await reloadOrg();
-          if (data && data.plan !== "free") {
+          // Try sync-plan API again
+          const res = await fetch("/api/sync-plan", { method: "POST" });
+          const syncData = await res.json();
+          if (syncData.synced && syncData.plan) {
+            synced = true;
             clearInterval(poll);
-            toast.success(locale === "en" ? `Plan upgraded to ${planLabels[data.plan]?.label || data.plan}!` : `¡Plan actualizado a ${planLabels[data.plan]?.label || data.plan}!`);
+            await reloadOrg();
+            toast.success(locale === "en" ? `Plan upgraded to ${planLabels[syncData.plan]?.label || syncData.plan}!` : `¡Plan actualizado a ${planLabels[syncData.plan]?.label || syncData.plan}!`);
           } else if (attempts >= maxAttempts) {
             clearInterval(poll);
-            toast.error(locale === "en" ? "Plan update is taking longer than expected. Please refresh the page in a minute." : "La actualización del plan está tardando más de lo esperado. Actualiza la página en un minuto.");
+            toast.error(locale === "en" ? "Plan update is taking longer than expected. Please refresh the page." : "La actualización del plan está tardando más de lo esperado. Actualiza la página.");
           }
         } catch {
           if (attempts >= maxAttempts) clearInterval(poll);
@@ -471,6 +497,44 @@ export default function ConfiguracionPage() {
                 >
                   <CreditCard className="h-4 w-4" />
                   {i("cfg.manageSubscription")}
+                </Button>
+              )}
+
+              {/* Manual sync button - shows when plan is free (in case sync failed) */}
+              {org?.plan === "free" && (
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  disabled={syncing}
+                  onClick={async () => {
+                    setSyncing(true);
+                    try {
+                      const res = await fetch("/api/sync-plan", { method: "POST" });
+                      const data = await res.json();
+                      console.log("[sync-plan] Response:", data);
+                      if (data.synced && data.plan) {
+                        await reloadOrg();
+                        toast.success(locale === "en" 
+                          ? `Plan synced: ${planLabels[data.plan]?.label || data.plan}!` 
+                          : `¡Plan sincronizado: ${planLabels[data.plan]?.label || data.plan}!`);
+                      } else if (data.reason) {
+                        toast.error(locale === "en"
+                          ? `Could not sync: ${data.reason}`
+                          : `No se pudo sincronizar: ${data.reason}`);
+                      } else if (data.error) {
+                        toast.error(data.error);
+                      }
+                    } catch (err) {
+                      toast.error(locale === "en" ? "Sync failed" : "Error al sincronizar");
+                    } finally {
+                      setSyncing(false);
+                    }
+                  }}
+                >
+                  {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                  {syncing 
+                    ? (locale === "en" ? "Syncing..." : "Sincronizando...") 
+                    : (locale === "en" ? "Sync plan from Stripe" : "Sincronizar plan desde Stripe")}
                 </Button>
               )}
             </CardContent>
