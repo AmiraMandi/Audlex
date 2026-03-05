@@ -138,6 +138,32 @@ export async function POST(request: Request) {
             })
             .where(eq(organizations.stripeSubscriptionId, subscription.id));
         }
+
+        // If user set cancel_at_period_end, create an info alert
+        if (subscription.cancel_at_period_end) {
+          const cancelDate = subscription.cancel_at
+            ? new Date(subscription.cancel_at * 1000)
+            : subscription.current_period_end
+              ? new Date(subscription.current_period_end * 1000)
+              : null;
+
+          const [org] = await db
+            .select()
+            .from(organizations)
+            .where(eq(organizations.stripeSubscriptionId, subscription.id))
+            .limit(1);
+
+          if (org && cancelDate) {
+            await db.insert(alerts).values({
+              organizationId: org.id,
+              type: "compliance_gap",
+              title: `Subscription cancellation scheduled / Cancelación de suscripción programada`,
+              message: `Your subscription will end on ${cancelDate.toLocaleDateString("en-GB")}. You keep full access until then. / Tu suscripción terminará el ${cancelDate.toLocaleDateString("es-ES")}. Mantienes acceso completo hasta entonces.`,
+              severity: "info",
+              actionUrl: "/dashboard/configuracion?tab=plan",
+            });
+          }
+        }
         break;
       }
 

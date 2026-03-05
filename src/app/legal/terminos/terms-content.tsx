@@ -12,7 +12,7 @@ export function TermsContent() {
         {en ? "Terms and Conditions of Use" : "Términos y Condiciones de Uso"}
       </h1>
       <p className="text-text-muted mb-8">
-        {en ? "Last updated: February 21, 2026" : "Última actualización: 21 de febrero de 2026"}
+        {en ? "Last updated: March 5, 2026" : "Última actualización: 5 de marzo de 2026"}
       </p>
 
       <section className="space-y-6 text-text-secondary">
@@ -119,7 +119,7 @@ export function TermsContent() {
                 <li><strong>Paid plans (Starter, Business, Enterprise):</strong> monthly billing through Stripe. Current prices are displayed in the Pricing section of the website.</li>
                 <li><strong>Consultant Plan:</strong> monthly base rate plus a fee per managed client.</li>
                 <li>Prices may be updated with 30 days&apos; notice to existing users.</li>
-                <li>You can cancel your subscription at any time from your settings panel. Cancellation takes effect at the end of the current billing period.</li>
+                <li>You can cancel your subscription at any time from your settings panel. See section 7 for full details on cancellation, withdrawal rights, and refunds.</li>
               </>
             ) : (
               <>
@@ -127,7 +127,7 @@ export function TermsContent() {
                 <li><strong>Planes de pago (Starter, Business, Enterprise):</strong> facturación mensual a través de Stripe. Los precios vigentes se muestran en la sección de Precios de la web.</li>
                 <li><strong>Plan Consultora:</strong> tarifa base mensual más un coste por cliente gestionado.</li>
                 <li>Los precios pueden actualizarse con 30 días de preaviso a los usuarios existentes.</li>
-                <li>Puedes cancelar tu suscripción en cualquier momento desde tu panel de configuración. La cancelación se hace efectiva al final del periodo de facturación vigente.</li>
+                <li>Puedes cancelar tu suscripción en cualquier momento desde tu panel de configuración. Consulta la sección 7 para todos los detalles sobre cancelación, derecho de desistimiento y reembolsos.</li>
               </>
             )}
           </ul>
@@ -136,7 +136,59 @@ export function TermsContent() {
         {/* 7 */}
         <div>
           <h2 className="text-xl font-semibold text-text mb-3">
-            {en ? "7. Intellectual Property" : "7. Propiedad intelectual"}
+            {en ? "7. Cancellation, Withdrawal and Refunds" : "7. Cancelación, desistimiento y reembolsos"}
+          </h2>
+          <ul className="list-disc pl-6 space-y-2">
+            {en ? (
+              <>
+                <li>
+                  <strong>Right of withdrawal (14 days):</strong> In accordance with Directive 2011/83/EU on consumer rights, you have the right to withdraw from your subscription within 14 calendar days from the date of your first payment, without giving any reason. If you exercise this right, we will refund the full amount paid using the same payment method. To exercise this right, cancel your subscription from Settings &gt; Plan &gt; &ldquo;Cancel immediately + refund&rdquo;, or contact us at <a href="mailto:info@audlex.com" className="text-brand-500 hover:underline">info@audlex.com</a>.
+                </li>
+                <li>
+                  <strong>Cancellation after 14 days:</strong> You may cancel your subscription at any time from your Settings panel. Cancellation takes effect at the end of your current billing period. You retain full access until that date. No partial refund is issued for the remaining period.
+                </li>
+                <li>
+                  <strong>Monthly plans:</strong> Access continues until the end of the current monthly cycle.
+                </li>
+                <li>
+                  <strong>Annual plans:</strong> Access continues until the end of the current annual cycle. No prorated refund is issued after the 14-day withdrawal period.
+                </li>
+                <li>
+                  <strong>Downgrade after cancellation:</strong> When your billing period ends, your account reverts to the Free plan (1 AI system, 1 user). All your data is preserved and you can resubscribe at any time.
+                </li>
+                <li>
+                  <strong>Refund processing:</strong> Approved refunds are processed within 5–10 business days via the original payment method (Stripe).
+                </li>
+              </>
+            ) : (
+              <>
+                <li>
+                  <strong>Derecho de desistimiento (14 días):</strong> De conformidad con la Directiva 2011/83/UE sobre derechos de los consumidores, tienes derecho a desistir de tu suscripción en un plazo de 14 días naturales desde la fecha de tu primer pago, sin necesidad de justificación. Si ejerces este derecho, te reembolsaremos el importe íntegro abonado a través del mismo método de pago. Para ejercer este derecho, cancela tu suscripción desde Configuración &gt; Plan &gt; &ldquo;Cancelar ahora + reembolso&rdquo;, o escríbenos a <a href="mailto:info@audlex.com" className="text-brand-500 hover:underline">info@audlex.com</a>.
+                </li>
+                <li>
+                  <strong>Cancelación después de 14 días:</strong> Puedes cancelar tu suscripción en cualquier momento desde tu panel de Configuración. La cancelación se hace efectiva al final de tu periodo de facturación vigente. Conservas acceso completo hasta esa fecha. No se realiza reembolso parcial por el tiempo restante.
+                </li>
+                <li>
+                  <strong>Planes mensuales:</strong> El acceso continúa hasta el final del ciclo mensual en curso.
+                </li>
+                <li>
+                  <strong>Planes anuales:</strong> El acceso continúa hasta el final del ciclo anual en curso. No se realiza reembolso prorrateado después del periodo de desistimiento de 14 días.
+                </li>
+                <li>
+                  <strong>Degradación tras cancelación:</strong> Cuando tu periodo de facturación finalice, tu cuenta vuelve al plan Free (1 sistema de IA, 1 usuario). Todos tus datos se conservan y puedes volver a suscribirte cuando quieras.
+                </li>
+                <li>
+                  <strong>Procesamiento de reembolsos:</strong> Los reembolsos aprobados se procesan en un plazo de 5–10 días hábiles a través del método de pago original (Stripe).
+                </li>
+              </>
+            )}
+          </ul>
+        </div>
+
+        {/* 8 */}
+        <div>
+          <h2 className="text-xl font-semibold text-text mb-3">
+            {en ? "8. Intellectual Property" : "8. Propiedad intelectual"}
           </h2>
           <ul className="list-disc pl-6 space-y-1">
             {en ? (
@@ -155,10 +207,10 @@ export function TermsContent() {
           </ul>
         </div>
 
-        {/* 8 */}
+        {/* 9 */}
         <div>
           <h2 className="text-xl font-semibold text-text mb-3">
-            {en ? "8. Acceptable Use" : "8. Uso aceptable"}
+            {en ? "9. Acceptable Use" : "9. Uso aceptable"}
           </h2>
           <p>{en ? "You agree to:" : "Te comprometes a:"}</p>
           <ul className="list-disc pl-6 space-y-1 mt-2">
@@ -182,10 +234,10 @@ export function TermsContent() {
           </ul>
         </div>
 
-        {/* 9 */}
+        {/* 10 */}
         <div>
           <h2 className="text-xl font-semibold text-text mb-3">
-            {en ? "9. Service Availability" : "9. Disponibilidad del servicio"}
+            {en ? "10. Service Availability" : "10. Disponibilidad del servicio"}
           </h2>
           <p>
             {en
@@ -194,10 +246,10 @@ export function TermsContent() {
           </p>
         </div>
 
-        {/* 10 */}
+        {/* 11 */}
         <div>
           <h2 className="text-xl font-semibold text-text mb-3">
-            {en ? "10. Liability Limitation" : "10. Limitación de responsabilidad"}
+            {en ? "11. Liability Limitation" : "11. Limitación de responsabilidad"}
           </h2>
           <ul className="list-disc pl-6 space-y-1">
             {en ? (
@@ -216,10 +268,10 @@ export function TermsContent() {
           </ul>
         </div>
 
-        {/* 11 */}
+        {/* 12 */}
         <div>
           <h2 className="text-xl font-semibold text-text mb-3">
-            {en ? "11. Data Protection" : "11. Protección de datos"}
+            {en ? "12. Data Protection" : "12. Protección de datos"}
           </h2>
           <p>
             {en ? (
@@ -236,10 +288,10 @@ export function TermsContent() {
           </p>
         </div>
 
-        {/* 12 */}
+        {/* 13 */}
         <div>
           <h2 className="text-xl font-semibold text-text mb-3">
-            {en ? "12. Dispute Resolution" : "12. Resolución de conflictos"}
+            {en ? "13. Dispute Resolution" : "13. Resolución de conflictos"}
           </h2>
           <p>
             {en
@@ -248,10 +300,10 @@ export function TermsContent() {
           </p>
         </div>
 
-        {/* 13 */}
+        {/* 14 */}
         <div>
           <h2 className="text-xl font-semibold text-text mb-3">
-            {en ? "13. Modifications" : "13. Modificaciones"}
+            {en ? "14. Modifications" : "14. Modificaciones"}
           </h2>
           <p>
             {en
@@ -260,10 +312,10 @@ export function TermsContent() {
           </p>
         </div>
 
-        {/* 14 */}
+        {/* 15 */}
         <div>
           <h2 className="text-xl font-semibold text-text mb-3">
-            {en ? "14. Contact" : "14. Contacto"}
+            {en ? "15. Contact" : "15. Contacto"}
           </h2>
           <p>
             {en ? (

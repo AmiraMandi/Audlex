@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Settings, Building2, Users, CreditCard, Shield, Save, ExternalLink, UserPlus, Trash2, Crown, Download, Bell, User, Activity } from "lucide-react";
+import { Settings, Building2, Users, CreditCard, Shield, Save, ExternalLink, UserPlus, Trash2, Crown, Download, Bell, User, Activity, XCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -67,6 +67,8 @@ export default function ConfiguracionPage() {
   });
 
   const [syncing, setSyncing] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const { locale } = useLocale();
   const searchParams = useSearchParams();
@@ -585,6 +587,160 @@ export default function ConfiguracionPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* CANCEL SUBSCRIPTION */}
+          {org?.plan !== "free" && org?.stripeSubscriptionId && (
+            <Card className="border-red-200 dark:border-red-900/50">
+              <CardHeader>
+                <CardTitle className="text-red-600 dark:text-red-400 flex items-center gap-2">
+                  <XCircle className="h-5 w-5" />
+                  {locale === "en" ? "Cancel Subscription" : "Cancelar suscripción"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-text-secondary mb-4">
+                  {locale === "en"
+                    ? "If you cancel, you will keep access to your current plan until the end of your billing period. Under EU consumer protection law (Directive 2011/83/EU), you have a 14-day right of withdrawal from your first payment with a full refund."
+                    : "Si cancelas, mantendrás el acceso a tu plan actual hasta el final de tu periodo de facturación. Según la legislación europea de protección al consumidor (Directiva 2011/83/UE), tienes un derecho de desistimiento de 14 días desde tu primer pago con reembolso completo."}
+                </p>
+                <Button
+                  variant="outline"
+                  className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
+                  onClick={() => setShowCancelModal(true)}
+                >
+                  <XCircle className="h-4 w-4" />
+                  {locale === "en" ? "Cancel subscription" : "Cancelar suscripción"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* CANCEL MODAL */}
+          <Modal
+            open={showCancelModal}
+            onClose={() => !cancelling && setShowCancelModal(false)}
+            title={locale === "en" ? "Cancel your subscription" : "Cancelar tu suscripción"}
+          >
+            <div className="space-y-4">
+              <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-amber-800 dark:text-amber-300">
+                    <p className="font-semibold mb-1">
+                      {locale === "en" ? "What happens when you cancel:" : "Qué pasa cuando cancelas:"}
+                    </p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      <li>
+                        {locale === "en"
+                          ? "You keep access until the end of your current billing period"
+                          : "Mantienes acceso hasta el final de tu periodo de facturación actual"}
+                      </li>
+                      <li>
+                        {locale === "en"
+                          ? "After that, your plan reverts to Free (1 system, 1 user)"
+                          : "Después de eso, tu plan vuelve a Free (1 sistema, 1 usuario)"}
+                      </li>
+                      <li>
+                        {locale === "en"
+                          ? "Your data is preserved — you can resubscribe anytime"
+                          : "Tus datos se conservan — puedes volver a suscribirte cuando quieras"}
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-4">
+                <p className="text-sm text-blue-800 dark:text-blue-300">
+                  <strong>{locale === "en" ? "14-day right of withdrawal (EU):" : "Derecho de desistimiento de 14 días (UE):"}</strong>{" "}
+                  {locale === "en"
+                    ? "If less than 14 days have passed since your first payment, you can cancel immediately with a full refund."
+                    : "Si han pasado menos de 14 días desde tu primer pago, puedes cancelar de inmediato con reembolso completo."}
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 pt-2">
+                {/* Cancel at period end — always available */}
+                <Button
+                  variant="outline"
+                  className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20 w-full"
+                  disabled={cancelling}
+                  onClick={async () => {
+                    setCancelling(true);
+                    try {
+                      const res = await fetch("/api/cancel-subscription", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ immediate: false }),
+                      });
+                      const data = await res.json();
+                      if (data.cancelled) {
+                        toast.success(data.message);
+                        setShowCancelModal(false);
+                        await reloadOrg();
+                      } else {
+                        toast.error(data.error || (locale === "en" ? "Cancellation failed" : "Error al cancelar"));
+                      }
+                    } catch {
+                      toast.error(locale === "en" ? "Cancellation failed" : "Error al cancelar");
+                    } finally {
+                      setCancelling(false);
+                    }
+                  }}
+                >
+                  {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                  {locale === "en" ? "Cancel at end of billing period" : "Cancelar al final del periodo"}
+                </Button>
+
+                {/* Immediate cancel + refund — only if within 14 days */}
+                <Button
+                  variant="outline"
+                  className="border-red-500 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30 w-full"
+                  disabled={cancelling}
+                  onClick={async () => {
+                    if (!confirm(
+                      locale === "en"
+                        ? "Are you sure? This will cancel your subscription immediately and issue a refund if you are within your 14-day withdrawal period."
+                        : "¿Estás seguro? Esto cancelará tu suscripción inmediatamente y te reembolsará si estás dentro del periodo de desistimiento de 14 días."
+                    )) return;
+
+                    setCancelling(true);
+                    try {
+                      const res = await fetch("/api/cancel-subscription", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ immediate: true }),
+                      });
+                      const data = await res.json();
+                      if (data.cancelled) {
+                        toast.success(data.message);
+                        setShowCancelModal(false);
+                        await reloadOrg();
+                      } else {
+                        toast.error(data.error || (locale === "en" ? "Cancellation failed" : "Error al cancelar"));
+                      }
+                    } catch {
+                      toast.error(locale === "en" ? "Cancellation failed" : "Error al cancelar");
+                    } finally {
+                      setCancelling(false);
+                    }
+                  }}
+                >
+                  {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />}
+                  {locale === "en" ? "Cancel immediately + refund (14-day right)" : "Cancelar ahora + reembolso (derecho 14 días)"}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  disabled={cancelling}
+                  onClick={() => setShowCancelModal(false)}
+                >
+                  {locale === "en" ? "Keep my subscription" : "Mantener mi suscripción"}
+                </Button>
+              </div>
+            </div>
+          </Modal>
         </div>
       )}
 
