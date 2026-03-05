@@ -106,7 +106,7 @@ export async function createCheckoutSession({
     mode: "subscription",
     payment_method_types: ["card"],
     line_items: [{ price: priceId, quantity: 1 }],
-    ...(customerId ? { customer: customerId } : { customer_email: customerEmail }),
+    ...(customerId ? { customer: customerId, customer_update: { name: "auto", address: "auto" } } : { customer_email: customerEmail }),
     success_url: successUrl,
     cancel_url: cancelUrl,
     metadata: {
