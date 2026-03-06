@@ -13,14 +13,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://www.audlex.com"),
-  alternates: {
-    canonical: "/",
-    languages: {
-      "es": "/",
-      "en": "/",
-      "x-default": "/",
-    },
-  },
+
   title: {
     default: "Audlex — Cumplimiento del EU AI Act para tu empresa",
     template: "%s | Audlex",
