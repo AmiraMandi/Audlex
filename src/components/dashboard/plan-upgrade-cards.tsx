@@ -288,6 +288,9 @@ export function PlanUpgradeCards({ currentPlan = "free", onUpgrade }: PlanUpgrad
         );
       })}
       </div>
+      <p className="text-center text-xs text-text-muted mt-4">
+        Precios sin IVA. El impuesto aplicable se calcula en el checkout.
+      </p>
 
       {/* Confirmation Modal */}
       {confirmModal && (

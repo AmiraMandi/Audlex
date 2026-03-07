@@ -232,6 +232,11 @@ export default function PricingSection({
             );
           })}
         </div>
+        <p className="text-center text-sm text-text-muted mt-8">
+          {locale === "es"
+            ? "Precios sin IVA. El impuesto aplicable se calcula en el checkout."
+            : "Prices exclude VAT. Applicable tax is calculated at checkout."}
+        </p>
       </div>
     </section>
   );
