@@ -189,60 +189,67 @@ const createSystemSchema = z.object({
 
 export type CreateSystemInput = z.infer<typeof createSystemSchema>;
 
-export async function createAiSystem(input: CreateSystemInput) {
-  const user = await getCurrentUser();
-  assertPermission(user.role as UserRole, "systems.create");
-  const parsed = createSystemSchema.parse(input);
+export async function createAiSystem(input: CreateSystemInput): Promise<{ success: true; data: AiSystem } | { success: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
+    assertPermission(user.role as UserRole, "systems.create");
+    const parsed = createSystemSchema.parse(input);
 
-  // Check plan limits
-  const [org] = await db
-    .select()
-    .from(organizations)
-    .where(eq(organizations.id, user.organizationId))
-    .limit(1);
+    // Check plan limits
+    const [org] = await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, user.organizationId))
+      .limit(1);
 
-  if (!org) throw new Error("Organisation not found / Organización no encontrada");
+    if (!org) return { success: false, error: "Organisation not found / Organización no encontrada" };
 
-  const existingSystems = await db
-    .select()
-    .from(aiSystems)
-    .where(eq(aiSystems.organizationId, org.id));
+    const existingSystems = await db
+      .select()
+      .from(aiSystems)
+      .where(eq(aiSystems.organizationId, org.id));
 
-  if (org.maxAiSystems > 0 && existingSystems.length >= org.maxAiSystems) {
-    throw new Error(
-      `You have reached the limit of ${org.maxAiSystems} systems for your plan. / Has alcanzado el límite de ${org.maxAiSystems} sistemas para tu plan.`
-    );
+    if (org.maxAiSystems > 0 && existingSystems.length >= org.maxAiSystems) {
+      return {
+        success: false,
+        error: `You have reached the limit of ${org.maxAiSystems} systems for your plan. / Has alcanzado el límite de ${org.maxAiSystems} sistemas para tu plan.`,
+      };
+    }
+
+    const [system] = await db
+      .insert(aiSystems)
+      .values({
+        ...parsed,
+        organizationId: org.id,
+        createdBy: user.id,
+      })
+      .returning();
+
+    revalidatePath("/dashboard/inventario");
+    revalidatePath("/dashboard");
+
+    await logAction(user.id, user.organizationId, "ai_system.created", "aiSystem", system.id, {
+      name: parsed.name,
+      category: parsed.category,
+    });
+
+    // Alert: new system registered
+    await fireAlert(user.organizationId, {
+      type: "system_review",
+      title: `Sistema registrado: ${parsed.name}`,
+      message: "Nuevo sistema de IA añadido al inventario. Clasifica su riesgo para continuar con el compliance.",
+      severity: "info",
+      actionUrl: `/dashboard/inventario`,
+      relatedEntityType: "aiSystem",
+      relatedEntityId: system.id,
+    });
+
+    return { success: true, data: system as AiSystem };
+  } catch (err) {
+    console.error("[createAiSystem] Error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
   }
-
-  const [system] = await db
-    .insert(aiSystems)
-    .values({
-      ...parsed,
-      organizationId: org.id,
-      createdBy: user.id,
-    })
-    .returning();
-
-  revalidatePath("/dashboard/inventario");
-  revalidatePath("/dashboard");
-
-  await logAction(user.id, user.organizationId, "ai_system.created", "aiSystem", system.id, {
-    name: parsed.name,
-    category: parsed.category,
-  });
-
-  // Alert: new system registered
-  await fireAlert(user.organizationId, {
-    type: "system_review",
-    title: `Sistema registrado: ${parsed.name}`,
-    message: "Nuevo sistema de IA añadido al inventario. Clasifica su riesgo para continuar con el compliance.",
-    severity: "info",
-    actionUrl: `/dashboard/inventario`,
-    relatedEntityType: "aiSystem",
-    relatedEntityId: system.id,
-  });
-
-  return system;
 }
 
 export async function getAiSystems() {
@@ -309,33 +316,39 @@ export async function getAiSystem(id: string) {
   return system || null;
 }
 
-export async function updateAiSystem(id: string, input: Partial<CreateSystemInput>) {
-  const user = await getCurrentUser();
-  assertPermission(user.role as UserRole, "systems.update");
+export async function updateAiSystem(id: string, input: Partial<CreateSystemInput>): Promise<{ success: true; data: AiSystem } | { success: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
+    assertPermission(user.role as UserRole, "systems.update");
 
-  // Validate and sanitize input — only allow known fields
-  const parsed = createSystemSchema.partial().parse(input);
+    // Validate and sanitize input — only allow known fields
+    const parsed = createSystemSchema.partial().parse(input);
 
-  const [updated] = await db
-    .update(aiSystems)
-    .set({
-      ...parsed,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(aiSystems.id, id),
-        eq(aiSystems.organizationId, user.organizationId)
+    const [updated] = await db
+      .update(aiSystems)
+      .set({
+        ...parsed,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(aiSystems.id, id),
+          eq(aiSystems.organizationId, user.organizationId)
+        )
       )
-    )
-    .returning();
+      .returning();
 
-  await logAction(user.id, user.organizationId, "ai_system.updated", "aiSystem", id);
+    await logAction(user.id, user.organizationId, "ai_system.updated", "aiSystem", id);
 
-  revalidatePath("/dashboard/inventario");
-  revalidatePath("/dashboard");
+    revalidatePath("/dashboard/inventario");
+    revalidatePath("/dashboard");
 
-  return updated;
+    return { success: true, data: updated as AiSystem };
+  } catch (err) {
+    console.error("[updateAiSystem] Error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
+  }
 }
 
 export async function deleteAiSystem(id: string) {

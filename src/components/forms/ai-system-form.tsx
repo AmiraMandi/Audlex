@@ -162,13 +162,24 @@ export function AiSystemForm({ initialData, initialCategory, initialName, editId
 
     try {
       if (editId) {
-        await updateAiSystem(editId, form);
+        const editResult = await updateAiSystem(editId, form);
+        if (!editResult.success) {
+          setError(editResult.error);
+          setLoading(false);
+          return;
+        }
         router.push(`/dashboard/inventario/${editId}`);
+        router.refresh();
       } else {
-        await createAiSystem(form);
+        const result = await createAiSystem(form);
+        if (!result.success) {
+          setError(result.error);
+          setLoading(false);
+          return;
+        }
         router.push("/dashboard/inventario");
+        router.refresh();
       }
-      router.refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : i("form.saveError"));
     } finally {
