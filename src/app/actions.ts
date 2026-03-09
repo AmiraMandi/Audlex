@@ -112,7 +112,7 @@ export async function provisionUser(
   sector?: string,
   size?: string
 ) {
-  // Check if user already exists
+  // Check if user already exists by authProviderId
   const [existing] = await db
     .select()
     .from(users)
@@ -120,6 +120,30 @@ export async function provisionUser(
     .limit(1);
 
   if (existing) return existing;
+
+  // Check if user exists with same email but different auth provider
+  // (e.g. re-registration after account deletion)
+  const [existingByEmail] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
+  if (existingByEmail) {
+    // Update the existing user's authProviderId to the new one
+    const [updated] = await db
+      .update(users)
+      .set({
+        authProviderId: authId,
+        name,
+        avatarUrl: avatarUrl || existingByEmail.avatarUrl,
+        lastLoginAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, existingByEmail.id))
+      .returning();
+    return updated;
+  }
 
   // Create organization first
   const [org] = await db
