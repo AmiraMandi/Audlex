@@ -801,7 +801,7 @@ export async function deleteDocument(id: string) {
 // COMPLIANCE ITEMS
 // ============================================================
 
-export async function generateComplianceItems(aiSystemId: string): Promise<{ success: true; count: number } | { success: false; error: string }> {
+export async function generateComplianceItems(aiSystemId: string, locale: Locale = "es"): Promise<{ success: true; count: number } | { success: false; error: string }> {
   try {
     const user = await getCurrentUser();
 
@@ -819,7 +819,7 @@ export async function generateComplianceItems(aiSystemId: string): Promise<{ suc
       .limit(1);
 
     if (!assessment) {
-      return { success: false, error: msg("es", "Primero debes clasificar el sistema de IA", "You must classify the AI system first") };
+      return { success: false, error: msg(locale, "Primero debes clasificar el sistema de IA en el Clasificador", "You must first classify the AI system in the Classifier") };
     }
 
     // Delete existing items for this system
@@ -877,7 +877,7 @@ export async function generateComplianceItems(aiSystemId: string): Promise<{ suc
 
     return { success: true, count: allItems.length };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Error generating compliance items" };
+    return { success: false, error: err instanceof Error ? err.message : msg(locale, "Error al generar requisitos de compliance", "Error generating compliance requirements") };
   }
 }
 

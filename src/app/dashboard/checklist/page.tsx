@@ -122,7 +122,7 @@ export default function ChecklistPage() {
   async function handleGenerateItems(systemId: string) {
     setGeneratingFor(systemId);
     try {
-      const result = await generateComplianceItems(systemId);
+      const result = await generateComplianceItems(systemId, locale);
       if (!result.success) {
         toast.error(result.error);
         return;
