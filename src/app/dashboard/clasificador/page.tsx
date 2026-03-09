@@ -14,8 +14,9 @@ import {
   type RiskLevel,
   type Locale,
 } from "@/lib/ai-act/classifier";
-import { runClassification } from "@/app/actions";
+import { runClassification, getAiSystems } from "@/app/actions";
 import { toast } from "sonner";
+import type { AiSystem } from "@/types";
 import { useLocale } from "@/hooks/use-locale";
 import { td } from "@/lib/i18n/dashboard-translations";
 
@@ -29,7 +30,10 @@ const riskConfig: Record<RiskLevel, { color: string; bg: string; border: string;
 function ClasificadorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const systemId = searchParams.get("system");
+  const systemIdFromUrl = searchParams.get("system");
+  const [systems, setSystems] = useState<AiSystem[]>([]);
+  const [selectedSystem, setSelectedSystem] = useState<string>(systemIdFromUrl || "");
+  const [systemsLoading, setSystemsLoading] = useState(true);
   const [answers, setAnswers] = useState<ClassificationAnswer[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [result, setResult] = useState<ClassificationResult | null>(null);
@@ -38,6 +42,28 @@ function ClasificadorContent() {
   const { locale } = useLocale();
   const i = (key: string, r?: Record<string, string | number>) => td(locale, key, r);
   const riskLabel = (level: RiskLevel) => i(`cls.risk.${level}`);
+
+  // Use selectedSystem as the effective systemId
+  const systemId = selectedSystem || null;
+
+  // Load systems on mount
+  useEffect(() => {
+    async function loadSystems() {
+      try {
+        const sys = await getAiSystems();
+        setSystems(sys);
+        // If no system selected from URL but we have systems, auto-select first
+        if (!systemIdFromUrl && sys.length > 0) {
+          setSelectedSystem(sys[0].id);
+        }
+      } catch {
+        // Not authenticated or error
+      } finally {
+        setSystemsLoading(false);
+      }
+    }
+    loadSystems();
+  }, [systemIdFromUrl]);
 
   const visibleQuestions = useMemo(() => getVisibleQuestions(answers, locale as Locale), [answers, locale]);
   const progress = useMemo(() => getProgress(answers), [answers]);
@@ -244,6 +270,44 @@ function ClasificadorContent() {
         <p className="text-text-muted mt-1">
           {i("cls.subtitle")}
         </p>
+      </div>
+
+      {/* System selector */}
+      <div className="rounded-xl border border-border bg-surface-secondary p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <label className="text-sm font-medium text-text whitespace-nowrap">
+            {i("cls.system")}
+          </label>
+          {systemsLoading ? (
+            <div className="flex items-center gap-2 text-sm text-text-muted">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {i("cls.loadingSystems")}
+            </div>
+          ) : systems.length === 0 ? (
+            <p className="text-sm text-text-muted">{i("cls.noSystems")}</p>
+          ) : (
+            <select
+              value={selectedSystem}
+              onChange={(e) => {
+                setSelectedSystem(e.target.value);
+                // Reset questionnaire when switching system
+                setAnswers([]);
+                setCurrentIndex(0);
+                setResult(null);
+              }}
+              className="flex-1 h-10 rounded-lg border border-border bg-surface-secondary px-3 text-sm"
+            >
+              {systems.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
+        {!systemId && !systemsLoading && systems.length === 0 && (
+          <p className="text-xs text-amber-600 mt-2">
+            {i("cls.registerFirst")}
+          </p>
+        )}
       </div>
 
       {/* Progress bar */}

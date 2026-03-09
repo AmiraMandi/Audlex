@@ -153,6 +153,10 @@ const dashboardTranslations: Record<Locale, Record<string, string>> = {
     "cls.unknownError": "Error desconocido",
     "cls.boolYes": "Sí",
     "cls.boolNo": "No",
+    "cls.system": "Sistema IA:",
+    "cls.loadingSystems": "Cargando sistemas…",
+    "cls.noSystems": "No tienes sistemas registrados. Registra uno primero en Inventario.",
+    "cls.registerFirst": "Registra un sistema IA en la sección Inventario antes de clasificar.",
     // Risk level labels
     "cls.risk.unacceptable": "PROHIBIDO",
     "cls.risk.high": "ALTO RIESGO",
@@ -918,6 +922,10 @@ const dashboardTranslations: Record<Locale, Record<string, string>> = {
     "cls.unknownError": "Unknown error",
     "cls.boolYes": "Yes",
     "cls.boolNo": "No",
+    "cls.system": "AI System:",
+    "cls.loadingSystems": "Loading systems…",
+    "cls.noSystems": "No registered systems. Register one first in Inventory.",
+    "cls.registerFirst": "Register an AI system in the Inventory section before classifying.",
     // Risk level labels
     "cls.risk.unacceptable": "PROHIBITED",
     "cls.risk.high": "HIGH RISK",
