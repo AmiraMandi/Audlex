@@ -97,9 +97,13 @@ function ClasificadorContent() {
     if (systemId) {
       setSaving(true);
       runClassification(systemId, answers, locale as Locale)
-        .then(() => {
-          toast.success(i("cls.saved"));
-          sessionStorage.removeItem(storageKey); // Clear persisted answers after successful save
+        .then((res) => {
+          if ('success' in res && !res.success) {
+            toast.error(res.error);
+          } else {
+            toast.success(i("cls.saved"));
+            sessionStorage.removeItem(storageKey); // Clear persisted answers after successful save
+          }
         })
         .catch((err) => {
           toast.error(i("cls.saveError") + (err.message || i("cls.unknownError")));

@@ -122,8 +122,12 @@ export default function ChecklistPage() {
   async function handleGenerateItems(systemId: string) {
     setGeneratingFor(systemId);
     try {
-      const count = await generateComplianceItems(systemId);
-      toast.success(i("chk.generated", { count }));
+      const result = await generateComplianceItems(systemId);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(i("chk.generated", { count: result.count }));
       const allItems = await getComplianceItems();
       setItems(allItems);
     } catch (err: unknown) {

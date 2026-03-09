@@ -277,67 +277,74 @@ export async function createAiSystem(input: CreateSystemInput): Promise<{ succes
 }
 
 export async function getAiSystems() {
-  const user = await getCurrentUser();
-
-  return db
-    .select()
-    .from(aiSystems)
-    .where(eq(aiSystems.organizationId, user.organizationId))
-    .orderBy(desc(aiSystems.createdAt));
+  try {
+    const user = await getCurrentUser();
+    return db
+      .select()
+      .from(aiSystems)
+      .where(eq(aiSystems.organizationId, user.organizationId))
+      .orderBy(desc(aiSystems.createdAt));
+  } catch {
+    return [];
+  }
 }
 
 /** Get all systems with their latest risk assessment level */
 export async function getAiSystemsWithRisk() {
-  const user = await getCurrentUser();
+  try {
+    const user = await getCurrentUser();
+    const systems = await db
+      .select()
+      .from(aiSystems)
+      .where(eq(aiSystems.organizationId, user.organizationId))
+      .orderBy(desc(aiSystems.createdAt));
 
-  const systems = await db
-    .select()
-    .from(aiSystems)
-    .where(eq(aiSystems.organizationId, user.organizationId))
-    .orderBy(desc(aiSystems.createdAt));
+    // Get latest risk assessment per system in one query (ordered by date desc)
+    const assessments = await db
+      .select({
+        aiSystemId: riskAssessments.aiSystemId,
+        riskLevel: riskAssessments.riskLevel,
+        isProhibited: riskAssessments.isProhibited,
+      })
+      .from(riskAssessments)
+      .where(eq(riskAssessments.organizationId, user.organizationId))
+      .orderBy(desc(riskAssessments.assessedAt));
 
-  // Get latest risk assessment per system in one query (ordered by date desc)
-  const assessments = await db
-    .select({
-      aiSystemId: riskAssessments.aiSystemId,
-      riskLevel: riskAssessments.riskLevel,
-      isProhibited: riskAssessments.isProhibited,
-    })
-    .from(riskAssessments)
-    .where(eq(riskAssessments.organizationId, user.organizationId))
-    .orderBy(desc(riskAssessments.assessedAt));
-
-  // Build a map: systemId -> latest risk level
-  const riskMap = new Map<string, { riskLevel: string; isProhibited: boolean }>();
-  for (const a of assessments) {
-    // If system already in map, keep latest (they're all valid, just pick one)
-    if (!riskMap.has(a.aiSystemId)) {
-      riskMap.set(a.aiSystemId, { riskLevel: a.riskLevel, isProhibited: a.isProhibited });
+    // Build a map: systemId -> latest risk level
+    const riskMap = new Map<string, { riskLevel: string; isProhibited: boolean }>();
+    for (const a of assessments) {
+      if (!riskMap.has(a.aiSystemId)) {
+        riskMap.set(a.aiSystemId, { riskLevel: a.riskLevel, isProhibited: a.isProhibited });
+      }
     }
-  }
 
-  return systems.map((s) => ({
-    ...s,
-    riskLevel: riskMap.get(s.id)?.riskLevel ?? null,
-    isProhibited: riskMap.get(s.id)?.isProhibited ?? false,
-  }));
+    return systems.map((s) => ({
+      ...s,
+      riskLevel: riskMap.get(s.id)?.riskLevel ?? null,
+      isProhibited: riskMap.get(s.id)?.isProhibited ?? false,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function getAiSystem(id: string) {
-  const user = await getCurrentUser();
-
-  const [system] = await db
-    .select()
-    .from(aiSystems)
-    .where(
-      and(
-        eq(aiSystems.id, id),
-        eq(aiSystems.organizationId, user.organizationId)
+  try {
+    const user = await getCurrentUser();
+    const [system] = await db
+      .select()
+      .from(aiSystems)
+      .where(
+        and(
+          eq(aiSystems.id, id),
+          eq(aiSystems.organizationId, user.organizationId)
+        )
       )
-    )
-    .limit(1);
-
-  return system || null;
+      .limit(1);
+    return system || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function updateAiSystem(id: string, input: Partial<CreateSystemInput>): Promise<{ success: true; data: AiSystem } | { success: false; error: string }> {
@@ -402,22 +409,25 @@ export async function runClassification(
   aiSystemId: string,
   answers: ClassificationAnswer[],
   locale: Locale = "es"
-) {
-  const user = await getCurrentUser();
+): Promise<{ success: true; assessment: typeof riskAssessments.$inferSelect; result: ReturnType<typeof classifyRisk> } | { success: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
 
-  // Verify ownership
-  const [system] = await db
-    .select()
-    .from(aiSystems)
-    .where(
-      and(
-        eq(aiSystems.id, aiSystemId),
-        eq(aiSystems.organizationId, user.organizationId)
+    // Verify ownership
+    const [system] = await db
+      .select()
+      .from(aiSystems)
+      .where(
+        and(
+          eq(aiSystems.id, aiSystemId),
+          eq(aiSystems.organizationId, user.organizationId)
+        )
       )
-    )
-    .limit(1);
+      .limit(1);
 
-  if (!system) throw new Error(locale === "en" ? "System not found" : "Sistema no encontrado");
+    if (!system) {
+      return { success: false, error: locale === "en" ? "System not found" : "Sistema no encontrado" };
+    }
 
   // Run the classifier
   const result = classifyRisk(answers, locale);
@@ -496,25 +506,30 @@ export async function runClassification(
     // Email failure should not block the flow
   }
 
-  return { assessment, result };
+  return { success: true, assessment, result };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Classification error" };
+  }
 }
 
 export async function getLatestAssessment(aiSystemId: string) {
-  const user = await getCurrentUser();
-
-  const [assessment] = await db
-    .select()
-    .from(riskAssessments)
-    .where(
-      and(
-        eq(riskAssessments.aiSystemId, aiSystemId),
-        eq(riskAssessments.organizationId, user.organizationId)
+  try {
+    const user = await getCurrentUser();
+    const [assessment] = await db
+      .select()
+      .from(riskAssessments)
+      .where(
+        and(
+          eq(riskAssessments.aiSystemId, aiSystemId),
+          eq(riskAssessments.organizationId, user.organizationId)
+        )
       )
-    )
-    .orderBy(desc(riskAssessments.version))
-    .limit(1);
-
-  return assessment || null;
+      .orderBy(desc(riskAssessments.version))
+      .limit(1);
+    return assessment || null;
+  } catch {
+    return null;
+  }
 }
 
 // ============================================================
@@ -559,52 +574,53 @@ export async function generateAndSaveDocument(
   type: DocumentTemplateType,
   aiSystemId?: string,
   locale: Locale = "es"
-) {
-  const user = await getCurrentUser();
-  const [org] = await db
-    .select()
-    .from(organizations)
-    .where(eq(organizations.id, user.organizationId))
-    .limit(1);
-
-  if (!org) throw new Error(msg(locale, "Organización no encontrada", "Organisation not found"));
-
-  let system = null;
-  let assessment = null;
-  let allSystems: AiSystem[] = [];
-
-  if (aiSystemId) {
-    const [s] = await db
+): Promise<{ success: true; document: typeof documents.$inferSelect; generated: ReturnType<typeof generateDocument>; markdown: string } | { success: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
+    const [org] = await db
       .select()
-      .from(aiSystems)
-      .where(
-        and(eq(aiSystems.id, aiSystemId), eq(aiSystems.organizationId, org.id))
-      )
+      .from(organizations)
+      .where(eq(organizations.id, user.organizationId))
       .limit(1);
-    system = s || null;
 
-    if (system) {
-      const [a] = await db
+    if (!org) return { success: false, error: msg(locale, "Organización no encontrada", "Organisation not found") };
+
+    let system = null;
+    let assessment = null;
+    let allSystems: AiSystem[] = [];
+
+    if (aiSystemId) {
+      const [s] = await db
         .select()
-        .from(riskAssessments)
-        .where(eq(riskAssessments.aiSystemId, aiSystemId))
-        .orderBy(desc(riskAssessments.version))
+        .from(aiSystems)
+        .where(
+          and(eq(aiSystems.id, aiSystemId), eq(aiSystems.organizationId, org.id))
+        )
         .limit(1);
-      assessment = a || null;
+      system = s || null;
+
+      if (system) {
+        const [a] = await db
+          .select()
+          .from(riskAssessments)
+          .where(eq(riskAssessments.aiSystemId, aiSystemId))
+          .orderBy(desc(riskAssessments.version))
+          .limit(1);
+        assessment = a || null;
+      }
     }
-  }
 
-  // For policy documents, get all systems
-  if (type === "ai_usage_policy" || type === "ai_inventory") {
-    allSystems = await db
-      .select()
-      .from(aiSystems)
-      .where(eq(aiSystems.organizationId, org.id));
-  }
+    // For policy documents, get all systems
+    if (type === "ai_usage_policy" || type === "ai_inventory") {
+      allSystems = await db
+        .select()
+        .from(aiSystems)
+        .where(eq(aiSystems.organizationId, org.id));
+    }
 
-  if (!system && type !== "ai_usage_policy" && type !== "ai_inventory") {
-    throw new Error(locale === "en" ? "AI system required for this document type" : "Sistema de IA requerido para este tipo de documento");
-  }
+    if (!system && type !== "ai_usage_policy" && type !== "ai_inventory") {
+      return { success: false, error: locale === "en" ? "AI system required for this document type" : "Sistema de IA requerido para este tipo de documento" };
+    }
 
   const generated = generateDocument(
     type,
@@ -693,45 +709,54 @@ export async function generateAndSaveDocument(
     // Email failure should not block the flow
   }
 
-  return { document: doc, generated, markdown: documentToMarkdown(generated, locale) };
+  return { success: true, document: doc, generated, markdown: documentToMarkdown(generated, locale) };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Error generating document" };
+  }
 }
 
 export async function getDocuments(aiSystemId?: string) {
-  const user = await getCurrentUser();
-
-  if (aiSystemId) {
+  try {
+    const user = await getCurrentUser();
+    if (aiSystemId) {
+      return db
+        .select()
+        .from(documents)
+        .where(
+          and(
+            eq(documents.organizationId, user.organizationId),
+            eq(documents.aiSystemId, aiSystemId)
+          )
+        )
+        .orderBy(desc(documents.createdAt));
+    }
     return db
+      .select()
+      .from(documents)
+      .where(eq(documents.organizationId, user.organizationId))
+      .orderBy(desc(documents.createdAt));
+  } catch {
+    return [];
+  }
+}
+
+export async function getDocument(id: string) {
+  try {
+    const user = await getCurrentUser();
+    const [doc] = await db
       .select()
       .from(documents)
       .where(
         and(
-          eq(documents.organizationId, user.organizationId),
-          eq(documents.aiSystemId, aiSystemId)
+          eq(documents.id, id),
+          eq(documents.organizationId, user.organizationId)
         )
       )
-      .orderBy(desc(documents.createdAt));
+      .limit(1);
+    return doc || null;
+  } catch {
+    return null;
   }
-
-  return db
-    .select()
-    .from(documents)
-    .where(eq(documents.organizationId, user.organizationId))
-    .orderBy(desc(documents.createdAt));
-}
-
-export async function getDocument(id: string) {
-  const user = await getCurrentUser();
-  const [doc] = await db
-    .select()
-    .from(documents)
-    .where(
-      and(
-        eq(documents.id, id),
-        eq(documents.organizationId, user.organizationId)
-      )
-    )
-    .limit(1);
-  return doc || null;
 }
 
 export async function updateDocumentStatus(
@@ -776,33 +801,36 @@ export async function deleteDocument(id: string) {
 // COMPLIANCE ITEMS
 // ============================================================
 
-export async function generateComplianceItems(aiSystemId: string) {
-  const user = await getCurrentUser();
+export async function generateComplianceItems(aiSystemId: string): Promise<{ success: true; count: number } | { success: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
 
-  // Get the latest assessment
-  const [assessment] = await db
-    .select()
-    .from(riskAssessments)
-    .where(
-      and(
-        eq(riskAssessments.aiSystemId, aiSystemId),
-        eq(riskAssessments.organizationId, user.organizationId)
+    // Get the latest assessment
+    const [assessment] = await db
+      .select()
+      .from(riskAssessments)
+      .where(
+        and(
+          eq(riskAssessments.aiSystemId, aiSystemId),
+          eq(riskAssessments.organizationId, user.organizationId)
+        )
       )
-    )
-    .orderBy(desc(riskAssessments.version))
-    .limit(1);
+      .orderBy(desc(riskAssessments.version))
+      .limit(1);
 
-  if (!assessment) throw new Error(msg("es", "Primero debes clasificar el sistema de IA", "You must classify the AI system first"));
+    if (!assessment) {
+      return { success: false, error: msg("es", "Primero debes clasificar el sistema de IA", "You must classify the AI system first") };
+    }
 
-  // Delete existing items for this system
-  await db
-    .delete(complianceItems)
-    .where(
-      and(
-        eq(complianceItems.aiSystemId, aiSystemId),
-        eq(complianceItems.organizationId, user.organizationId)
-      )
-    );
+    // Delete existing items for this system
+    await db
+      .delete(complianceItems)
+      .where(
+        and(
+          eq(complianceItems.aiSystemId, aiSystemId),
+          eq(complianceItems.organizationId, user.organizationId)
+        )
+      );
 
   // Generate items from obligations
   const obligations = (assessment.obligations as Obligation[]) || [];
@@ -847,30 +875,35 @@ export async function generateComplianceItems(aiSystemId: string) {
   revalidatePath("/dashboard/checklist");
   revalidatePath("/dashboard");
 
-  return allItems.length;
+    return { success: true, count: allItems.length };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Error generating compliance items" };
+  }
 }
 
 export async function getComplianceItems(aiSystemId?: string) {
-  const user = await getCurrentUser();
-
-  if (aiSystemId) {
+  try {
+    const user = await getCurrentUser();
+    if (aiSystemId) {
+      return db
+        .select()
+        .from(complianceItems)
+        .where(
+          and(
+            eq(complianceItems.organizationId, user.organizationId),
+            eq(complianceItems.aiSystemId, aiSystemId)
+          )
+        )
+        .orderBy(complianceItems.article);
+    }
     return db
       .select()
       .from(complianceItems)
-      .where(
-        and(
-          eq(complianceItems.organizationId, user.organizationId),
-          eq(complianceItems.aiSystemId, aiSystemId)
-        )
-      )
+      .where(eq(complianceItems.organizationId, user.organizationId))
       .orderBy(complianceItems.article);
+  } catch {
+    return [];
   }
-
-  return db
-    .select()
-    .from(complianceItems)
-    .where(eq(complianceItems.organizationId, user.organizationId))
-    .orderBy(complianceItems.article);
 }
 
 export async function updateComplianceItemStatus(
@@ -910,6 +943,7 @@ export async function updateComplianceItemStatus(
 // ============================================================
 
 export async function getDashboardStats() {
+  try {
   const user = await getCurrentUser();
   const orgId = user.organizationId;
 
@@ -955,9 +989,13 @@ export async function getDashboardStats() {
     totalItems: allComplianceItems.length,
     unreadAlerts: alertsResult.count,
   };
+  } catch {
+    return { totalSystems: 0, classifiedSystems: 0, totalDocuments: 0, complianceScore: 0, completedItems: 0, totalItems: 0, unreadAlerts: 0 };
+  }
 }
 
 export async function getDashboardCharts() {
+  try {
   const user = await getCurrentUser();
   const orgId = user.organizationId;
 
@@ -1035,6 +1073,9 @@ export async function getDashboardCharts() {
     })),
     complianceCategories,
   };
+  } catch {
+    return { riskDistribution: [], systemsByCategory: [], documentsByStatus: [], complianceCategories: [] };
+  }
 }
 
 // ============================================================
@@ -1042,12 +1083,16 @@ export async function getDashboardCharts() {
 // ============================================================
 
 export async function getAlerts() {
-  const user = await getCurrentUser();
-  return db
-    .select()
-    .from(alerts)
-    .where(eq(alerts.organizationId, user.organizationId))
-    .orderBy(desc(alerts.createdAt));
+  try {
+    const user = await getCurrentUser();
+    return db
+      .select()
+      .from(alerts)
+      .where(eq(alerts.organizationId, user.organizationId))
+      .orderBy(desc(alerts.createdAt));
+  } catch {
+    return [];
+  }
 }
 
 export async function markAlertRead(id: string) {
@@ -1088,12 +1133,16 @@ export async function createAlert(input: {
 // ============================================================
 
 export async function getAssessments() {
-  const user = await getCurrentUser();
-  return db
-    .select()
-    .from(riskAssessments)
-    .where(eq(riskAssessments.organizationId, user.organizationId))
-    .orderBy(desc(riskAssessments.assessedAt));
+  try {
+    const user = await getCurrentUser();
+    return db
+      .select()
+      .from(riskAssessments)
+      .where(eq(riskAssessments.organizationId, user.organizationId))
+      .orderBy(desc(riskAssessments.assessedAt));
+  } catch {
+    return [];
+  }
 }
 
 // ============================================================
@@ -1101,20 +1150,24 @@ export async function getAssessments() {
 // ============================================================
 
 export async function getTeamMembers() {
-  const user = await getCurrentUser();
-  return db
-    .select({
-      id: users.id,
-      email: users.email,
-      name: users.name,
-      role: users.role,
-      avatarUrl: users.avatarUrl,
-      lastLoginAt: users.lastLoginAt,
-      createdAt: users.createdAt,
-    })
-    .from(users)
-    .where(eq(users.organizationId, user.organizationId))
-    .orderBy(users.createdAt);
+  try {
+    const user = await getCurrentUser();
+    return db
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        role: users.role,
+        avatarUrl: users.avatarUrl,
+        lastLoginAt: users.lastLoginAt,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(eq(users.organizationId, user.organizationId))
+      .orderBy(users.createdAt);
+  } catch {
+    return [];
+  }
 }
 
 export async function inviteTeamMember(email: string, role: "admin" | "member" | "viewer") {
@@ -1250,29 +1303,31 @@ export async function removeTeamMember(memberId: string) {
 // ============================================================
 
 export async function getAuditLog(limit = 100, offset = 0) {
-  const user = await getCurrentUser();
-  assertPermission(user.role as UserRole, "org.read");
-
-  const logs = await db
-    .select({
-      id: auditLog.id,
-      action: auditLog.action,
-      entityType: auditLog.entityType,
-      entityId: auditLog.entityId,
-      changes: auditLog.changes,
-      createdAt: auditLog.createdAt,
-      userId: auditLog.userId,
-      userName: users.name,
-      userEmail: users.email,
-    })
-    .from(auditLog)
-    .leftJoin(users, eq(auditLog.userId, users.id))
-    .where(eq(auditLog.organizationId, user.organizationId))
-    .orderBy(desc(auditLog.createdAt))
-    .limit(limit)
-    .offset(offset);
-
-  return logs;
+  try {
+    const user = await getCurrentUser();
+    assertPermission(user.role as UserRole, "org.read");
+    const logs = await db
+      .select({
+        id: auditLog.id,
+        action: auditLog.action,
+        entityType: auditLog.entityType,
+        entityId: auditLog.entityId,
+        changes: auditLog.changes,
+        createdAt: auditLog.createdAt,
+        userId: auditLog.userId,
+        userName: users.name,
+        userEmail: users.email,
+      })
+      .from(auditLog)
+      .leftJoin(users, eq(auditLog.userId, users.id))
+      .where(eq(auditLog.organizationId, user.organizationId))
+      .orderBy(desc(auditLog.createdAt))
+      .limit(limit)
+      .offset(offset);
+    return logs;
+  } catch {
+    return [];
+  }
 }
 
 // ============================================================
@@ -1337,24 +1392,26 @@ export async function deleteAccount() {
 // ============================================================
 
 export async function getRecentActivity(limit = 5) {
-  const user = await getCurrentUser();
-
-  const logs = await db
-    .select({
-      id: auditLog.id,
-      action: auditLog.action,
-      entityType: auditLog.entityType,
-      entityId: auditLog.entityId,
-      createdAt: auditLog.createdAt,
-      userName: users.name,
-    })
-    .from(auditLog)
-    .leftJoin(users, eq(auditLog.userId, users.id))
-    .where(eq(auditLog.organizationId, user.organizationId))
-    .orderBy(desc(auditLog.createdAt))
-    .limit(limit);
-
-  return logs;
+  try {
+    const user = await getCurrentUser();
+    const logs = await db
+      .select({
+        id: auditLog.id,
+        action: auditLog.action,
+        entityType: auditLog.entityType,
+        entityId: auditLog.entityId,
+        createdAt: auditLog.createdAt,
+        userName: users.name,
+      })
+      .from(auditLog)
+      .leftJoin(users, eq(auditLog.userId, users.id))
+      .where(eq(auditLog.organizationId, user.organizationId))
+      .orderBy(desc(auditLog.createdAt))
+      .limit(limit);
+    return logs;
+  } catch {
+    return [];
+  }
 }
 
 // ============================================================
@@ -1414,32 +1471,33 @@ export async function updateDocumentContent(docId: string, content: Record<strin
 // ============================================================
 
 export async function globalSearch(query: string) {
-  const user = await getCurrentUser();
-  const q = `%${query.toLowerCase()}%`;
-
-  const systemResults = await db
-    .select({ id: aiSystems.id, name: aiSystems.name, category: aiSystems.category })
-    .from(aiSystems)
-    .where(
-      and(
-        eq(aiSystems.organizationId, user.organizationId),
-        sql`LOWER(${aiSystems.name}) LIKE ${q}`
+  try {
+    const user = await getCurrentUser();
+    const q = `%${query.toLowerCase()}%`;
+    const systemResults = await db
+      .select({ id: aiSystems.id, name: aiSystems.name, category: aiSystems.category })
+      .from(aiSystems)
+      .where(
+        and(
+          eq(aiSystems.organizationId, user.organizationId),
+          sql`LOWER(${aiSystems.name}) LIKE ${q}`
+        )
       )
-    )
-    .limit(5);
-
-  const docResults = await db
-    .select({ id: documents.id, title: documents.title, type: documents.type })
-    .from(documents)
-    .where(
-      and(
-        eq(documents.organizationId, user.organizationId),
-        sql`LOWER(${documents.title}) LIKE ${q}`
+      .limit(5);
+    const docResults = await db
+      .select({ id: documents.id, title: documents.title, type: documents.type })
+      .from(documents)
+      .where(
+        and(
+          eq(documents.organizationId, user.organizationId),
+          sql`LOWER(${documents.title}) LIKE ${q}`
+        )
       )
-    )
-    .limit(5);
-
-  return { systems: systemResults, documents: docResults };
+      .limit(5);
+    return { systems: systemResults, documents: docResults };
+  } catch {
+    return { systems: [], documents: [] };
+  }
 }
 
 // ============================================================

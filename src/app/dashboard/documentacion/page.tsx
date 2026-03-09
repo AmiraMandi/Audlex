@@ -104,6 +104,10 @@ function DocumentacionContent() {
         type === "ai_usage_policy" || type === "ai_inventory" ? undefined : selectedSystem,
         locale as Locale
       );
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
       toast.success(i("docs.generated"));
       setShowPreview({ ...result.document, generated: result.generated, markdown: result.markdown });
       // Refresh document list
