@@ -103,7 +103,8 @@ CREATE TABLE risk_assessments (
   recommendations JSONB,
   assessed_by UUID REFERENCES users(id),
   version INTEGER NOT NULL DEFAULT 1,
-  assessed_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  assessed_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
 -- Documents
