@@ -127,7 +127,11 @@ export default function ChecklistPage() {
         toast.error(result.error);
         return;
       }
-      toast.success(i("chk.generated", { count: result.count }));
+      toast.success(
+        locale === "en"
+          ? `${result.count} compliance requirements generated`
+          : `${result.count} requisitos de compliance generados`
+      );
       const allItems = await getComplianceItems();
       setItems(allItems);
     } catch (err: unknown) {
