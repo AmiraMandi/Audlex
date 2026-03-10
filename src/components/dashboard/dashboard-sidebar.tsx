@@ -15,6 +15,7 @@ import {
   LogOut,
   Activity,
   HelpCircle,
+  Building2,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { useLocale } from "@/hooks/use-locale";
@@ -37,10 +38,14 @@ function daysUntil() {
   return Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-export function DashboardSidebar() {
+export function DashboardSidebar({ plan }: { plan: string }) {
   const { locale } = useLocale();
   const pathname = usePathname();
   const [isDark, setIsDark] = useState(false);
+
+  const items = plan === "consultora"
+    ? [...navItems, { href: "/dashboard/consultora", labelKey: "sidebar.consultora", icon: Building2 }]
+    : navItems;
 
   useEffect(() => {
     const checkTheme = () => {
@@ -85,7 +90,7 @@ export function DashboardSidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1" aria-label={td(locale, "a11y.mainNav")}>
-        {navItems.map((item) => {
+        {items.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
           return (
             <Link

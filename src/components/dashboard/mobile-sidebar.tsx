@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   Activity,
+  Building2,
 } from "lucide-react";
 import { useLocale } from "@/hooks/use-locale";
 import { td } from "@/lib/i18n/dashboard-translations";
@@ -33,13 +34,18 @@ const navItems = [
 interface MobileSidebarProps {
   userEmail: string;
   daysUntilDeadline: number;
+  plan: string;
 }
 
-export function MobileSidebar({ userEmail, daysUntilDeadline }: MobileSidebarProps) {
+export function MobileSidebar({ userEmail, daysUntilDeadline, plan }: MobileSidebarProps) {
   const [open, setOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const pathname = usePathname();
   const { locale } = useLocale();
+
+  const items = plan === "consultora"
+    ? [...navItems, { href: "/dashboard/consultora", labelKey: "sidebar.consultora", icon: Building2 }]
+    : navItems;
 
   useEffect(() => {
     const checkTheme = () => {
@@ -143,7 +149,7 @@ export function MobileSidebar({ userEmail, daysUntilDeadline }: MobileSidebarPro
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
+          {items.map((item) => {
             const isActive =
               item.href === "/dashboard"
                 ? pathname === "/dashboard"

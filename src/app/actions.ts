@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { aiSystems, riskAssessments, organizations, users, documents, complianceItems, alerts, auditLog, consultoraClients } from "@/lib/db/schema";
+import { aiSystems, riskAssessments, organizations, users, documents, complianceItems, alerts, auditLog, consultoraClients, whitelabelConfig } from "@/lib/db/schema";
 import type { Obligation, AiSystem } from "@/lib/db/schema";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { eq, and, desc, count, sql } from "drizzle-orm";
@@ -1704,4 +1704,165 @@ export async function getClientDashboardStats(clientOrgId: string) {
     totalDocuments: docCount?.count || 0,
     totalAssessments: assessmentCount?.count || 0,
   };
+}
+
+// ── Detailed client view for consultora ──
+
+export async function getClientDetail(clientOrgId: string) {
+  const user = await getCurrentUser();
+
+  // Verify consultora relationship
+  const [link] = await db.select().from(consultoraClients).where(
+    and(
+      eq(consultoraClients.consultoraOrgId, user.organizationId),
+      eq(consultoraClients.clientOrgId, clientOrgId)
+    )
+  ).limit(1);
+
+  if (!link) throw new Error("Unauthorized access / Acceso no autorizado");
+
+  // Org info
+  const [org] = await db.select().from(organizations).where(eq(organizations.id, clientOrgId)).limit(1);
+  if (!org) throw new Error("Organization not found");
+
+  // Systems with risk level from assessments
+  const systems = await db
+    .select({
+      id: aiSystems.id,
+      name: aiSystems.name,
+      category: aiSystems.category,
+      status: aiSystems.status,
+      purpose: aiSystems.purpose,
+      createdAt: aiSystems.createdAt,
+    })
+    .from(aiSystems)
+    .where(eq(aiSystems.organizationId, clientOrgId))
+    .orderBy(desc(aiSystems.createdAt));
+
+  // Get assessments for each system
+  const assessments = await db
+    .select({
+      aiSystemId: riskAssessments.aiSystemId,
+      riskLevel: riskAssessments.riskLevel,
+      assessedAt: riskAssessments.assessedAt,
+    })
+    .from(riskAssessments)
+    .where(eq(riskAssessments.organizationId, clientOrgId))
+    .orderBy(desc(riskAssessments.assessedAt));
+
+  // Documents
+  const docs = await db
+    .select({
+      id: documents.id,
+      title: documents.title,
+      type: documents.type,
+      status: documents.status,
+      createdAt: documents.createdAt,
+    })
+    .from(documents)
+    .where(eq(documents.organizationId, clientOrgId))
+    .orderBy(desc(documents.createdAt));
+
+  // Compliance items
+  const compliance = await db
+    .select({
+      id: complianceItems.id,
+      category: complianceItems.category,
+      status: complianceItems.status,
+    })
+    .from(complianceItems)
+    .where(eq(complianceItems.organizationId, clientOrgId));
+
+  const totalCompliance = compliance.length;
+  const completedCompliance = compliance.filter(c => c.status === "completed").length;
+
+  // Map risk levels to systems
+  const systemsWithRisk = systems.map(s => {
+    const assessment = assessments.find(a => a.aiSystemId === s.id);
+    return { ...s, riskLevel: assessment?.riskLevel || null };
+  });
+
+  return {
+    org: { name: org.name, size: org.size, sector: org.sector, plan: org.plan, createdAt: org.createdAt },
+    systems: systemsWithRisk,
+    documents: docs,
+    complianceScore: totalCompliance > 0 ? Math.round((completedCompliance / totalCompliance) * 100) : 0,
+    complianceTotal: totalCompliance,
+    complianceCompleted: completedCompliance,
+    riskSummary: {
+      unacceptable: assessments.filter(a => a.riskLevel === "unacceptable").length,
+      high: assessments.filter(a => a.riskLevel === "high").length,
+      limited: assessments.filter(a => a.riskLevel === "limited").length,
+      minimal: assessments.filter(a => a.riskLevel === "minimal").length,
+    },
+  };
+}
+
+// ============================================================
+// WHITE-LABEL CONFIG
+// ============================================================
+
+export async function getWhitelabelConfig() {
+  const user = await getCurrentUser();
+  const [org] = await db.select().from(organizations).where(eq(organizations.id, user.organizationId)).limit(1);
+  if (!org || org.plan !== "consultora") return null;
+
+  const [config] = await db
+    .select()
+    .from(whitelabelConfig)
+    .where(eq(whitelabelConfig.organizationId, user.organizationId))
+    .limit(1);
+
+  return config || null;
+}
+
+const whitelabelSchema = z.object({
+  brandName: z.string().min(1).max(200),
+  logoUrl: z.string().max(500).optional().or(z.literal("")),
+  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  secondaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  footerText: z.string().max(500).optional().or(z.literal("")),
+});
+
+export async function saveWhitelabelConfig(input: {
+  brandName: string;
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  footerText?: string;
+}) {
+  try {
+    const user = await getCurrentUser();
+    assertPermission(user.role as UserRole, "org.update");
+    const [org] = await db.select().from(organizations).where(eq(organizations.id, user.organizationId)).limit(1);
+    if (!org || org.plan !== "consultora") throw new Error("Consultora plan required");
+
+    const parsed = whitelabelSchema.parse(input);
+
+    // Upsert
+    const [existing] = await db
+      .select()
+      .from(whitelabelConfig)
+      .where(eq(whitelabelConfig.organizationId, user.organizationId))
+      .limit(1);
+
+    if (existing) {
+      await db
+        .update(whitelabelConfig)
+        .set({ ...parsed, updatedAt: new Date() })
+        .where(eq(whitelabelConfig.id, existing.id));
+    } else {
+      await db
+        .insert(whitelabelConfig)
+        .values({ ...parsed, organizationId: user.organizationId });
+    }
+
+    await logAction(user.id, user.organizationId, "whitelabel_updated", "organization", user.organizationId);
+
+    revalidatePath("/dashboard/consultora");
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
+  }
 }

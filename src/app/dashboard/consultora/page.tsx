@@ -1,16 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Building2, Plus, Trash2, Users, FileText, Cpu, BarChart3 } from "lucide-react";
+import {
+  Building2, Plus, Trash2, Users, FileText, Cpu,
+  ChevronRight, ArrowLeft, Shield, CheckCircle2, AlertTriangle,
+  Palette,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/feedback";
-import { getConsultoraClients, addConsultoraClient, removeConsultoraClient, getClientDashboardStats } from "@/app/actions";
+import {
+  getConsultoraClients, addConsultoraClient, removeConsultoraClient,
+  getClientDetail, getWhitelabelConfig, saveWhitelabelConfig,
+} from "@/app/actions";
 import { toast } from "sonner";
 import { useLocale } from "@/hooks/use-locale";
-import { td } from "@/lib/i18n/dashboard-translations";
 
 interface Client {
   id: string;
@@ -21,29 +27,78 @@ interface Client {
   orgSize: string;
 }
 
-interface ClientStats {
-  totalSystems: number;
-  totalDocuments: number;
-  totalAssessments: number;
+interface ClientDetailData {
+  org: { name: string; size: string; sector: string | null; plan: string; createdAt: Date };
+  systems: { id: string; name: string; category: string; status: string; purpose: string; riskLevel: string | null; createdAt: Date }[];
+  documents: { id: string; title: string; type: string; status: string; createdAt: Date }[];
+  complianceScore: number;
+  complianceTotal: number;
+  complianceCompleted: number;
+  riskSummary: { unacceptable: number; high: number; limited: number; minimal: number };
 }
 
+interface WhitelabelData {
+  brandName: string;
+  logoUrl: string;
+  primaryColor: string;
+  secondaryColor: string;
+  footerText: string;
+}
+
+type Tab = "clients" | "branding";
+
+const riskColors: Record<string, string> = {
+  unacceptable: "bg-red-500",
+  high: "bg-orange-500",
+  limited: "bg-yellow-500",
+  minimal: "bg-green-500",
+};
+
+const riskLabels: Record<string, Record<string, string>> = {
+  es: { unacceptable: "Inaceptable", high: "Alto", limited: "Limitado", minimal: "Mínimo" },
+  en: { unacceptable: "Unacceptable", high: "High", limited: "Limited", minimal: "Minimal" },
+};
+
+const statusColors: Record<string, string> = {
+  draft: "text-gray-500",
+  review: "text-blue-500",
+  approved: "text-green-500",
+  expired: "text-red-500",
+};
+
 export default function ConsultoraPage() {
+  const [tab, setTab] = useState<Tab>("clients");
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addEmail, setAddEmail] = useState("");
   const [adding, setAdding] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [clientStats, setClientStats] = useState<ClientStats | null>(null);
+  const [clientDetail, setClientDetail] = useState<ClientDetailData | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [notConsultora, setNotConsultora] = useState(false);
+  const [branding, setBranding] = useState<WhitelabelData>({
+    brandName: "", logoUrl: "", primaryColor: "#2563EB", secondaryColor: "#1E40AF", footerText: "",
+  });
+  const [savingBranding, setSavingBranding] = useState(false);
   const { locale } = useLocale();
-  const i = (key: string, r?: Record<string, string | number>) => td(locale, key, r);
+  const t = (es: string, en: string) => locale === "en" ? en : es;
 
   useEffect(() => {
     async function load() {
       try {
         const data = await getConsultoraClients();
         setClients(data as Client[]);
+        const config = await getWhitelabelConfig();
+        if (config) {
+          setBranding({
+            brandName: config.brandName || "",
+            logoUrl: config.logoUrl || "",
+            primaryColor: config.primaryColor || "#2563EB",
+            secondaryColor: config.secondaryColor || "#1E40AF",
+            footerText: config.footerText || "",
+          });
+        }
       } catch {
         setNotConsultora(true);
       } finally {
@@ -62,9 +117,9 @@ export default function ConsultoraPage() {
       setClients(data as Client[]);
       setShowAddModal(false);
       setAddEmail("");
-      toast.success(locale === "en" ? "Client added" : "Cliente añadido");
+      toast.success(t("Cliente añadido", "Client added"));
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : (locale === "en" ? "Error adding client" : "Error al añadir cliente");
+      const message = err instanceof Error ? err.message : t("Error al añadir cliente", "Error adding client");
       toast.error(message);
     } finally {
       setAdding(false);
@@ -72,23 +127,43 @@ export default function ConsultoraPage() {
   }
 
   async function handleRemove(linkId: string) {
-    if (!confirm(locale === "en" ? "Remove this client?" : "¿Eliminar este cliente?")) return;
+    if (!confirm(t("¿Eliminar este cliente?", "Remove this client?"))) return;
     try {
       await removeConsultoraClient(linkId);
       setClients((prev) => prev.filter((c) => c.id !== linkId));
-      toast.success(locale === "en" ? "Client removed" : "Cliente eliminado");
+      toast.success(t("Cliente eliminado", "Client removed"));
     } catch {
-      toast.error(locale === "en" ? "Error" : "Error");
+      toast.error("Error");
     }
   }
 
-  async function handleViewStats(client: Client) {
+  async function handleViewDetail(client: Client) {
     setSelectedClient(client);
+    setDetailLoading(true);
+    setClientDetail(null);
     try {
-      const stats = await getClientDashboardStats(client.clientOrgId);
-      setClientStats(stats);
+      const detail = await getClientDetail(client.clientOrgId) as ClientDetailData;
+      setClientDetail(detail);
     } catch {
-      setClientStats(null);
+      toast.error(t("Error al cargar datos del cliente", "Error loading client data"));
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function handleSaveBranding() {
+    setSavingBranding(true);
+    try {
+      const result = await saveWhitelabelConfig(branding);
+      if (result.success) {
+        toast.success(t("Marca guardada", "Branding saved"));
+      } else {
+        toast.error(result.error || "Error");
+      }
+    } catch {
+      toast.error("Error");
+    } finally {
+      setSavingBranding(false);
     }
   }
 
@@ -104,87 +179,380 @@ export default function ConsultoraPage() {
     return (
       <EmptyState
         icon={Building2}
-        title={locale === "en" ? "Consultora plan required" : "Plan Consultora requerido"}
-        description={locale === "en"
-          ? "Upgrade to the Consultora plan to manage multiple client organisations."
-          : "Actualiza al plan Consultora para gestionar múltiples organizaciones cliente."}
+        title={t("Plan Consultora requerido", "Consultora plan required")}
+        description={t(
+          "Actualiza al plan Consultora para gestionar múltiples organizaciones cliente.",
+          "Upgrade to the Consultora plan to manage multiple client organisations."
+        )}
       >
         <Button onClick={() => (window.location.href = "/dashboard/configuracion")}>
-          {locale === "en" ? "Go to settings" : "Ir a configuración"}
+          {t("Ir a configuración", "Go to settings")}
         </Button>
       </EmptyState>
     );
   }
 
+  // ── Client Detail View ──
+  if (selectedClient && !detailLoading && clientDetail) {
+    return (
+      <div className="space-y-6">
+        <button
+          onClick={() => { setSelectedClient(null); setClientDetail(null); }}
+          className="flex items-center gap-2 text-sm text-text-secondary hover:text-text transition"
+        >
+          <ArrowLeft className="h-4 w-4" /> {t("Volver a clientes", "Back to clients")}
+        </button>
+
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-brand-50 flex items-center justify-center">
+            <Building2 className="h-6 w-6 text-brand-500" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-text">{clientDetail.org.name}</h1>
+            <p className="text-sm text-text-secondary capitalize">
+              {clientDetail.org.sector || ""} · {clientDetail.org.size} · {t("Plan", "Plan")}: {clientDetail.org.plan}
+            </p>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-5 text-center">
+              <Cpu className="h-5 w-5 text-blue-500 mx-auto mb-1" />
+              <p className="text-2xl font-bold text-text">{clientDetail.systems.length}</p>
+              <p className="text-xs text-text-muted">{t("Sistemas IA", "AI Systems")}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-5 text-center">
+              <FileText className="h-5 w-5 text-amber-500 mx-auto mb-1" />
+              <p className="text-2xl font-bold text-text">{clientDetail.documents.length}</p>
+              <p className="text-xs text-text-muted">{t("Documentos", "Documents")}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-5 text-center">
+              <CheckCircle2 className="h-5 w-5 text-green-500 mx-auto mb-1" />
+              <p className="text-2xl font-bold text-text">{clientDetail.complianceScore}%</p>
+              <p className="text-xs text-text-muted">Compliance</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-5 text-center">
+              <Shield className="h-5 w-5 text-purple-500 mx-auto mb-1" />
+              <p className="text-2xl font-bold text-text">
+                {clientDetail.riskSummary.high + clientDetail.riskSummary.unacceptable}
+              </p>
+              <p className="text-xs text-text-muted">{t("Riesgo alto+", "High risk+")}</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Risk Distribution */}
+        {(clientDetail.riskSummary.unacceptable + clientDetail.riskSummary.high + clientDetail.riskSummary.limited + clientDetail.riskSummary.minimal) > 0 && (
+          <Card>
+            <CardHeader><CardTitle className="text-sm">{t("Distribución de Riesgo", "Risk Distribution")}</CardTitle></CardHeader>
+            <CardContent>
+              <div className="flex gap-4 flex-wrap">
+                {(["unacceptable", "high", "limited", "minimal"] as const).map(level => {
+                  const val = clientDetail.riskSummary[level];
+                  if (val === 0) return null;
+                  return (
+                    <div key={level} className="flex items-center gap-1.5">
+                      <div className={`h-3 w-3 rounded-full ${riskColors[level]}`} />
+                      <span className="text-sm text-text-secondary">
+                        {riskLabels[locale]?.[level] || level}: {val}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Systems */}
+        <Card>
+          <CardHeader><CardTitle className="text-sm">{t("Sistemas de IA", "AI Systems")}</CardTitle></CardHeader>
+          <CardContent>
+            {clientDetail.systems.length === 0 ? (
+              <p className="text-sm text-text-muted">{t("Sin sistemas registrados", "No systems registered")}</p>
+            ) : (
+              <div className="divide-y divide-border">
+                {clientDetail.systems.map(s => (
+                  <div key={s.id} className="py-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-text">{s.name}</p>
+                      <p className="text-xs text-text-muted">{s.category} · {s.purpose?.slice(0, 60)}</p>
+                    </div>
+                    {s.riskLevel && (
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium text-white ${riskColors[s.riskLevel] || "bg-gray-400"}`}>
+                        {riskLabels[locale]?.[s.riskLevel] || s.riskLevel}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Documents */}
+        <Card>
+          <CardHeader><CardTitle className="text-sm">{t("Documentos", "Documents")}</CardTitle></CardHeader>
+          <CardContent>
+            {clientDetail.documents.length === 0 ? (
+              <p className="text-sm text-text-muted">{t("Sin documentos generados", "No documents generated")}</p>
+            ) : (
+              <div className="divide-y divide-border">
+                {clientDetail.documents.map(d => (
+                  <div key={d.id} className="py-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-text">{d.title}</p>
+                      <p className="text-xs text-text-muted">{d.type}</p>
+                    </div>
+                    <span className={`text-xs font-medium ${statusColors[d.status] || "text-gray-500"}`}>
+                      {d.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // ── Loading client detail ──
+  if (selectedClient && detailLoading) {
+    return (
+      <div className="space-y-6">
+        <button
+          onClick={() => { setSelectedClient(null); setClientDetail(null); }}
+          className="flex items-center gap-2 text-sm text-text-secondary hover:text-text transition"
+        >
+          <ArrowLeft className="h-4 w-4" /> {t("Volver a clientes", "Back to clients")}
+        </button>
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin h-8 w-8 border-4 border-brand-500 border-t-transparent rounded-full" />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Main Consultora View ──
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-text">
-            {locale === "en" ? "Client Management" : "Gestión de Clientes"}
-          </h1>
-          <p className="text-text-secondary mt-1">
-            {locale === "en"
-              ? "Manage and monitor your consulting clients"
-              : "Gestiona y monitoriza tus clientes de consultoría"}
-          </p>
-        </div>
-        <Button onClick={() => setShowAddModal(true)}>
-          <Plus className="h-4 w-4" />
-          {locale === "en" ? "Add client" : "Añadir cliente"}
-        </Button>
+      <div>
+        <h1 className="text-2xl font-bold text-text">
+          {t("Panel Consultora", "Consulting Panel")}
+        </h1>
+        <p className="text-text-secondary mt-1">
+          {t("Gestiona tus clientes y personaliza tu marca", "Manage your clients and customize your branding")}
+        </p>
       </div>
 
-      {clients.length === 0 ? (
-        <EmptyState
-          icon={Users}
-          title={locale === "en" ? "No clients yet" : "Sin clientes aún"}
-          description={locale === "en"
-            ? "Add your first client organisation to start managing their compliance."
-            : "Añade tu primera organización cliente para empezar a gestionar su compliance."}
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-border">
+        <button
+          onClick={() => setTab("clients")}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+            tab === "clients"
+              ? "border-brand-500 text-brand-500"
+              : "border-transparent text-text-secondary hover:text-text"
+          }`}
         >
-          <Button onClick={() => setShowAddModal(true)}>
-            <Plus className="h-4 w-4" />
-            {locale === "en" ? "Add client" : "Añadir cliente"}
-          </Button>
-        </EmptyState>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {clients.map((client) => (
-            <Card key={client.id} className="hover:border-brand-200 transition">
-              <CardContent className="py-5">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-brand-50 flex items-center justify-center">
-                      <Building2 className="h-5 w-5 text-brand-500" />
+          <Users className="h-4 w-4 inline mr-1.5" />
+          {t("Clientes", "Clients")} ({clients.length})
+        </button>
+        <button
+          onClick={() => setTab("branding")}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+            tab === "branding"
+              ? "border-brand-500 text-brand-500"
+              : "border-transparent text-text-secondary hover:text-text"
+          }`}
+        >
+          <Palette className="h-4 w-4 inline mr-1.5" />
+          {t("Marca / White-label", "Branding / White-label")}
+        </button>
+      </div>
+
+      {/* ── Clients Tab ── */}
+      {tab === "clients" && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button onClick={() => setShowAddModal(true)}>
+              <Plus className="h-4 w-4" />
+              {t("Añadir cliente", "Add client")}
+            </Button>
+          </div>
+
+          {clients.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title={t("Sin clientes aún", "No clients yet")}
+              description={t(
+                "Añade tu primera organización cliente para empezar a gestionar su compliance.",
+                "Add your first client organisation to start managing their compliance."
+              )}
+            >
+              <Button onClick={() => setShowAddModal(true)}>
+                <Plus className="h-4 w-4" />
+                {t("Añadir cliente", "Add client")}
+              </Button>
+            </EmptyState>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {clients.map((client) => (
+                <Card key={client.id} className="hover:border-brand-200 transition cursor-pointer group" onClick={() => handleViewDetail(client)}>
+                  <CardContent className="py-5">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-brand-50 flex items-center justify-center">
+                          <Building2 className="h-5 w-5 text-brand-500" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-text">{client.orgName}</h3>
+                          <p className="text-xs text-text-muted capitalize">{client.orgSize} · {client.orgPlan}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleRemove(client.id); }}
+                          className="p-1.5 rounded-lg hover:bg-red-50 transition opacity-0 group-hover:opacity-100"
+                          title={t("Eliminar", "Remove")}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </button>
+                        <ChevronRight className="h-4 w-4 text-text-muted" />
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-text">{client.orgName}</h3>
-                      <p className="text-xs text-text-muted capitalize">{client.orgSize}</p>
-                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Branding Tab ── */}
+      {tab === "branding" && (
+        <div className="max-w-2xl space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                {t("Configuración de Marca", "Branding Configuration")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                label={t("Nombre de marca", "Brand name")}
+                value={branding.brandName}
+                onChange={(e) => setBranding(prev => ({ ...prev, brandName: e.target.value }))}
+                placeholder={t("Tu marca", "Your brand")}
+              />
+              <Input
+                label={t("URL del logo", "Logo URL")}
+                value={branding.logoUrl}
+                onChange={(e) => setBranding(prev => ({ ...prev, logoUrl: e.target.value }))}
+                placeholder="https://tu-empresa.com/logo.png"
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text mb-1.5">
+                    {t("Color primario", "Primary color")}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={branding.primaryColor}
+                      onChange={(e) => setBranding(prev => ({ ...prev, primaryColor: e.target.value }))}
+                      className="h-10 w-14 rounded border border-border cursor-pointer"
+                    />
+                    <Input
+                      value={branding.primaryColor}
+                      onChange={(e) => setBranding(prev => ({ ...prev, primaryColor: e.target.value }))}
+                      className="font-mono text-sm"
+                    />
                   </div>
-                  <button
-                    onClick={() => handleRemove(client.id)}
-                    className="p-1.5 rounded-lg hover:bg-red-50 transition"
-                    title={locale === "en" ? "Remove" : "Eliminar"}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </button>
                 </div>
-                <div className="mt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => handleViewStats(client)}
-                  >
-                    <BarChart3 className="h-3.5 w-3.5" />
-                    {locale === "en" ? "View stats" : "Ver estadísticas"}
-                  </Button>
+                <div>
+                  <label className="block text-sm font-medium text-text mb-1.5">
+                    {t("Color secundario", "Secondary color")}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={branding.secondaryColor}
+                      onChange={(e) => setBranding(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                      className="h-10 w-14 rounded border border-border cursor-pointer"
+                    />
+                    <Input
+                      value={branding.secondaryColor}
+                      onChange={(e) => setBranding(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                      className="font-mono text-sm"
+                    />
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+              <Input
+                label={t("Texto de pie de página", "Footer text")}
+                value={branding.footerText}
+                onChange={(e) => setBranding(prev => ({ ...prev, footerText: e.target.value }))}
+                placeholder={t("© 2025 Tu marca. Todos los derechos reservados.", "© 2025 Your brand. All rights reserved.")}
+              />
+
+              {/* Preview */}
+              {branding.brandName && (
+                <div className="rounded-lg border border-border p-4 space-y-3">
+                  <p className="text-xs font-medium text-text-muted uppercase tracking-wider">
+                    {t("Previsualización", "Preview")}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    {branding.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={branding.logoUrl} alt="Logo" className="h-8 w-auto object-contain" />
+                    ) : (
+                      <div
+                        className="h-8 w-8 rounded-lg flex items-center justify-center text-white text-sm font-bold"
+                        style={{ backgroundColor: branding.primaryColor }}
+                      >
+                        {branding.brandName[0]?.toUpperCase()}
+                      </div>
+                    )}
+                    <span className="text-lg font-semibold" style={{ color: branding.primaryColor }}>
+                      {branding.brandName}
+                    </span>
+                  </div>
+                  {branding.footerText && (
+                    <p className="text-xs text-text-muted border-t border-border pt-2">
+                      {branding.footerText}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end pt-2">
+                <Button onClick={handleSaveBranding} disabled={savingBranding || !branding.brandName}>
+                  {savingBranding ? "..." : t("Guardar marca", "Save branding")}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm text-amber-800">
+              <AlertTriangle className="h-4 w-4 inline mr-1" />
+              {t(
+                "La marca se aplicará a los documentos generados para tus clientes. El dominio personalizado estará disponible próximamente.",
+                "Branding will be applied to documents generated for your clients. Custom domain will be available soon."
+              )}
+            </p>
+          </div>
         </div>
       )}
 
@@ -192,10 +560,11 @@ export default function ConsultoraPage() {
       <Modal
         open={showAddModal}
         onClose={() => { setShowAddModal(false); setAddEmail(""); }}
-        title={locale === "en" ? "Add client" : "Añadir cliente"}
-        description={locale === "en"
-          ? "Enter the email of a user in the client organisation."
-          : "Introduce el email de un usuario de la organización cliente."}
+        title={t("Añadir cliente", "Add client")}
+        description={t(
+          "Introduce el email de un usuario de la organización cliente. El cliente debe tener una cuenta en Audlex.",
+          "Enter the email of a user in the client organisation. The client must have an Audlex account."
+        )}
         size="sm"
       >
         <div className="space-y-4">
@@ -208,46 +577,13 @@ export default function ConsultoraPage() {
           />
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => { setShowAddModal(false); setAddEmail(""); }}>
-              {locale === "en" ? "Cancel" : "Cancelar"}
+              {t("Cancelar", "Cancel")}
             </Button>
             <Button onClick={handleAdd} disabled={adding || !addEmail.includes("@")}>
-              {adding ? "..." : (locale === "en" ? "Add" : "Añadir")}
+              {adding ? "..." : t("Añadir", "Add")}
             </Button>
           </div>
         </div>
-      </Modal>
-
-      {/* Client Stats Modal */}
-      <Modal
-        open={!!selectedClient}
-        onClose={() => { setSelectedClient(null); setClientStats(null); }}
-        title={selectedClient?.orgName || ""}
-        description={locale === "en" ? "Client compliance overview" : "Resumen de compliance del cliente"}
-        size="sm"
-      >
-        {clientStats ? (
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center rounded-lg border border-border p-4">
-              <Cpu className="h-5 w-5 text-blue-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-text">{clientStats.totalSystems}</p>
-              <p className="text-xs text-text-muted">{locale === "en" ? "Systems" : "Sistemas"}</p>
-            </div>
-            <div className="text-center rounded-lg border border-border p-4">
-              <FileText className="h-5 w-5 text-amber-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-text">{clientStats.totalDocuments}</p>
-              <p className="text-xs text-text-muted">{locale === "en" ? "Documents" : "Documentos"}</p>
-            </div>
-            <div className="text-center rounded-lg border border-border p-4">
-              <BarChart3 className="h-5 w-5 text-green-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-text">{clientStats.totalAssessments}</p>
-              <p className="text-xs text-text-muted">{locale === "en" ? "Assessments" : "Evaluaciones"}</p>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin h-6 w-6 border-2 border-brand-500 border-t-transparent rounded-full" />
-          </div>
-        )}
       </Modal>
     </div>
   );
