@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/ui/feedback";
 import {
   getConsultoraClients, addConsultoraClient, removeConsultoraClient,
   getClientDetail, getWhitelabelConfig, saveWhitelabelConfig,
+  consultoraCreateSystem, consultoraGenerateDocument,
 } from "@/app/actions";
 import { toast } from "sonner";
 import { useLocale } from "@/hooks/use-locale";
@@ -81,6 +82,12 @@ export default function ConsultoraPage() {
     brandName: "", logoUrl: "", primaryColor: "#2563EB", secondaryColor: "#1E40AF", footerText: "",
   });
   const [savingBranding, setSavingBranding] = useState(false);
+  // System creation modal
+  const [showSystemModal, setShowSystemModal] = useState(false);
+  const [newSystem, setNewSystem] = useState({ name: "", category: "", purpose: "", provider: "", description: "" });
+  const [creatingSys, setCreatingSys] = useState(false);
+  // Document generation
+  const [generatingDoc, setGeneratingDoc] = useState<string | null>(null);
   const { locale } = useLocale();
   const t = (es: string, en: string) => locale === "en" ? en : es;
 
@@ -158,6 +165,53 @@ export default function ConsultoraPage() {
     }
   }
 
+  async function handleCreateSystem() {
+    if (!selectedClient || !newSystem.name.trim() || !newSystem.category.trim() || !newSystem.purpose.trim()) return;
+    setCreatingSys(true);
+    try {
+      const result = await consultoraCreateSystem(selectedClient.clientOrgId, newSystem);
+      if (!result.success) {
+        toast.error(result.error || "Error");
+        return;
+      }
+      toast.success(t("Sistema creado", "System created"));
+      setShowSystemModal(false);
+      setNewSystem({ name: "", category: "", purpose: "", provider: "", description: "" });
+      // Refresh detail
+      const detail = await getClientDetail(selectedClient.clientOrgId) as ClientDetailData;
+      setClientDetail(detail);
+    } catch {
+      toast.error("Error");
+    } finally {
+      setCreatingSys(false);
+    }
+  }
+
+  async function handleGenerateDoc(type: string, systemId?: string) {
+    if (!selectedClient) return;
+    setGeneratingDoc(type);
+    try {
+      const result = await consultoraGenerateDocument(
+        selectedClient.clientOrgId,
+        type as Parameters<typeof consultoraGenerateDocument>[1],
+        systemId,
+        locale as "es" | "en"
+      );
+      if (!result.success) {
+        toast.error(result.error || "Error");
+        return;
+      }
+      toast.success(t("Documento generado", "Document generated"));
+      // Refresh detail
+      const detail = await getClientDetail(selectedClient.clientOrgId) as ClientDetailData;
+      setClientDetail(detail);
+    } catch {
+      toast.error("Error");
+    } finally {
+      setGeneratingDoc(null);
+    }
+  }
+
   async function handleSaveBranding() {
     setSavingBranding(true);
     try {
@@ -201,6 +255,19 @@ export default function ConsultoraPage() {
 
   // ── Client Detail View ──
   if (selectedClient && !detailLoading && clientDetail) {
+    const docTypes = [
+      { type: "ai_usage_policy", label: t("Política de uso IA", "AI Usage Policy"), needsSystem: false },
+      { type: "ai_inventory", label: t("Inventario IA", "AI Inventory"), needsSystem: false },
+      { type: "impact_assessment", label: t("Evaluación de impacto", "Impact Assessment"), needsSystem: true },
+      { type: "risk_management", label: t("Gestión de riesgos", "Risk Management"), needsSystem: true },
+      { type: "technical_file", label: t("Expediente técnico", "Technical File"), needsSystem: true },
+      { type: "conformity_declaration", label: t("Declaración de conformidad", "Conformity Declaration"), needsSystem: true },
+      { type: "human_oversight", label: t("Supervisión humana", "Human Oversight"), needsSystem: true },
+      { type: "transparency_notice", label: t("Aviso transparencia", "Transparency Notice"), needsSystem: true },
+      { type: "data_governance", label: t("Gobernanza de datos", "Data Governance"), needsSystem: true },
+      { type: "post_market_monitoring", label: t("Vigilancia post-mercado", "Post-Market Monitoring"), needsSystem: true },
+    ];
+
     return (
       <div className="space-y-6">
         <button
@@ -211,16 +278,22 @@ export default function ConsultoraPage() {
         </button>
 
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-brand-50 flex items-center justify-center">
-            <Building2 className="h-6 w-6 text-brand-500" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-xl bg-brand-50 flex items-center justify-center">
+              <Building2 className="h-6 w-6 text-brand-500" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-text">{clientDetail.org.name}</h1>
+              <p className="text-sm text-text-secondary capitalize">
+                {clientDetail.org.sector || ""} · {clientDetail.org.size} · {t("Plan", "Plan")}: {clientDetail.org.plan}
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-text">{clientDetail.org.name}</h1>
-            <p className="text-sm text-text-secondary capitalize">
-              {clientDetail.org.sector || ""} · {clientDetail.org.size} · {t("Plan", "Plan")}: {clientDetail.org.plan}
-            </p>
-          </div>
+          <Button onClick={() => setShowSystemModal(true)}>
+            <Plus className="h-4 w-4" />
+            {t("Añadir sistema", "Add system")}
+          </Button>
         </div>
 
         {/* Stats Grid */}
@@ -280,25 +353,35 @@ export default function ConsultoraPage() {
           </Card>
         )}
 
-        {/* Systems */}
+        {/* Systems with actions */}
         <Card>
-          <CardHeader><CardTitle className="text-sm">{t("Sistemas de IA", "AI Systems")}</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-sm">{t("Sistemas de IA", "AI Systems")}</CardTitle>
+            <Button size="sm" variant="outline" onClick={() => setShowSystemModal(true)}>
+              <Plus className="h-3.5 w-3.5" />
+              {t("Nuevo", "New")}
+            </Button>
+          </CardHeader>
           <CardContent>
             {clientDetail.systems.length === 0 ? (
-              <p className="text-sm text-text-muted">{t("Sin sistemas registrados", "No systems registered")}</p>
+              <p className="text-sm text-text-muted">{t("Sin sistemas registrados. Añade el primer sistema de IA del cliente.", "No systems registered. Add the client's first AI system.")}</p>
             ) : (
               <div className="divide-y divide-border">
                 {clientDetail.systems.map(s => (
-                  <div key={s.id} className="py-3 flex items-center justify-between">
-                    <div>
+                  <div key={s.id} className="py-3 flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-text">{s.name}</p>
-                      <p className="text-xs text-text-muted">{s.category} · {s.purpose?.slice(0, 60)}</p>
+                      <p className="text-xs text-text-muted truncate">{s.category} · {s.purpose?.slice(0, 60)}</p>
                     </div>
-                    {s.riskLevel && (
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium text-white ${riskColors[s.riskLevel] || "bg-gray-400"}`}>
-                        {riskLabels[locale]?.[s.riskLevel] || s.riskLevel}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {s.riskLevel ? (
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium text-white ${riskColors[s.riskLevel] || "bg-gray-400"}`}>
+                          {riskLabels[locale]?.[s.riskLevel] || s.riskLevel}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-text-muted italic">{t("Sin clasificar", "Unclassified")}</span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -306,12 +389,75 @@ export default function ConsultoraPage() {
           </CardContent>
         </Card>
 
-        {/* Documents */}
+        {/* Generate Documents */}
         <Card>
-          <CardHeader><CardTitle className="text-sm">{t("Documentos", "Documents")}</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-sm">{t("Generar Documentos", "Generate Documents")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-text-muted mb-3">
+              {t(
+                "Genera documentación de compliance del EU AI Act para este cliente.",
+                "Generate EU AI Act compliance documentation for this client."
+              )}
+            </p>
+
+            {/* Org-level docs (no system needed) */}
+            <div className="space-y-2 mb-4">
+              <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+                {t("Documentos de organización", "Organisation documents")}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {docTypes.filter(d => !d.needsSystem).map(d => (
+                  <Button
+                    key={d.type}
+                    size="sm"
+                    variant="outline"
+                    disabled={generatingDoc !== null}
+                    onClick={() => handleGenerateDoc(d.type)}
+                  >
+                    {generatingDoc === d.type ? "..." : d.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* System-level docs */}
+            {clientDetail.systems.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+                  {t("Documentos por sistema", "Per-system documents")}
+                </p>
+                {clientDetail.systems.map(sys => (
+                  <div key={sys.id} className="rounded-lg border border-border p-3">
+                    <p className="text-sm font-medium text-text mb-2">{sys.name}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {docTypes.filter(d => d.needsSystem).map(d => (
+                        <Button
+                          key={`${sys.id}-${d.type}`}
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-7"
+                          disabled={generatingDoc !== null}
+                          onClick={() => handleGenerateDoc(d.type, sys.id)}
+                        >
+                          {generatingDoc === `${d.type}` ? "..." : d.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Existing Documents */}
+        <Card>
+          <CardHeader><CardTitle className="text-sm">{t("Documentos generados", "Generated Documents")}</CardTitle></CardHeader>
           <CardContent>
             {clientDetail.documents.length === 0 ? (
-              <p className="text-sm text-text-muted">{t("Sin documentos generados", "No documents generated")}</p>
+              <p className="text-sm text-text-muted">{t("Sin documentos generados aún.", "No documents generated yet.")}</p>
             ) : (
               <div className="divide-y divide-border">
                 {clientDetail.documents.map(d => (
@@ -329,6 +475,71 @@ export default function ConsultoraPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Add System Modal */}
+        <Modal
+          open={showSystemModal}
+          onClose={() => { setShowSystemModal(false); setNewSystem({ name: "", category: "", purpose: "", provider: "", description: "" }); }}
+          title={t("Nuevo sistema de IA", "New AI system")}
+          description={t(
+            `Registrar un sistema de IA para ${clientDetail.org.name}`,
+            `Register an AI system for ${clientDetail.org.name}`
+          )}
+          size="sm"
+        >
+          <div className="space-y-4">
+            <Input
+              label={t("Nombre del sistema", "System name")}
+              value={newSystem.name}
+              onChange={(e) => setNewSystem(prev => ({ ...prev, name: e.target.value }))}
+              placeholder={t("Chatbot de atención al cliente", "Customer service chatbot")}
+              required
+            />
+            <div>
+              <label className="block text-sm font-medium text-text mb-1.5">
+                {t("Categoría", "Category")}
+              </label>
+              <select
+                value={newSystem.category}
+                onChange={(e) => setNewSystem(prev => ({ ...prev, category: e.target.value }))}
+                className="flex h-10 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text transition focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              >
+                <option value="">{t("Seleccionar...", "Select...")}</option>
+                <option value="chatbot">Chatbot</option>
+                <option value="scoring">{t("Scoring / Decisión", "Scoring / Decision")}</option>
+                <option value="analytics">{t("Analítica", "Analytics")}</option>
+                <option value="rrhh">{t("Recursos Humanos", "Human Resources")}</option>
+                <option value="biometria">{t("Biometría", "Biometrics")}</option>
+                <option value="diagnostico">{t("Diagnóstico", "Diagnostics")}</option>
+                <option value="recomendacion">{t("Recomendación", "Recommendation")}</option>
+                <option value="generacion_contenido">{t("Generación de contenido", "Content Generation")}</option>
+                <option value="vigilancia">{t("Vigilancia", "Surveillance")}</option>
+                <option value="otro">{t("Otro", "Other")}</option>
+              </select>
+            </div>
+            <Input
+              label={t("Propósito / Uso", "Purpose / Use")}
+              value={newSystem.purpose}
+              onChange={(e) => setNewSystem(prev => ({ ...prev, purpose: e.target.value }))}
+              placeholder={t("Automatizar respuestas a consultas frecuentes", "Automate responses to frequent queries")}
+              required
+            />
+            <Input
+              label={t("Proveedor (opcional)", "Provider (optional)")}
+              value={newSystem.provider}
+              onChange={(e) => setNewSystem(prev => ({ ...prev, provider: e.target.value }))}
+              placeholder="OpenAI, Google, Interno..."
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowSystemModal(false)}>
+                {t("Cancelar", "Cancel")}
+              </Button>
+              <Button onClick={handleCreateSystem} disabled={creatingSys || !newSystem.name.trim() || !newSystem.category || !newSystem.purpose.trim()}>
+                {creatingSys ? "..." : t("Crear sistema", "Create system")}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       </div>
     );
   }

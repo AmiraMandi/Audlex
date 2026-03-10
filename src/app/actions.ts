@@ -1824,6 +1824,186 @@ export async function getClientDetail(clientOrgId: string) {
 // WHITE-LABEL CONFIG
 // ============================================================
 
+// ── Helper: verify consultora owns this client org ──
+async function verifyConsultoraAccess(userId: string, consultoraOrgId: string, clientOrgId: string) {
+  const [link] = await db.select().from(consultoraClients).where(
+    and(
+      eq(consultoraClients.consultoraOrgId, consultoraOrgId),
+      eq(consultoraClients.clientOrgId, clientOrgId)
+    )
+  ).limit(1);
+  if (!link) throw new Error("Unauthorized: no consultora relationship");
+  return link;
+}
+
+// ── Consultora: create AI system for client ──
+export async function consultoraCreateSystem(clientOrgId: string, input: {
+  name: string;
+  description?: string;
+  provider?: string;
+  providerModel?: string;
+  category: string;
+  purpose: string;
+  status?: "active" | "planned" | "retired";
+}) {
+  try {
+    const user = await getCurrentUser();
+    assertPermission(user.role as UserRole, "systems.create");
+    await verifyConsultoraAccess(user.id, user.organizationId, clientOrgId);
+
+    const parsed = createSystemSchema.parse(input);
+
+    const [system] = await db
+      .insert(aiSystems)
+      .values({
+        ...parsed,
+        organizationId: clientOrgId,
+        createdBy: user.id,
+      })
+      .returning();
+
+    await logAction(user.id, user.organizationId, "ai_system.created", "aiSystem", system.id, {
+      name: parsed.name,
+      category: parsed.category,
+      clientOrgId,
+    });
+
+    revalidatePath("/dashboard/consultora");
+    return { success: true, data: system };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
+  }
+}
+
+// ── Consultora: run risk classification for client's system ──
+export async function consultoraRunClassification(
+  clientOrgId: string,
+  aiSystemId: string,
+  answers: ClassificationAnswer[],
+  locale: Locale = "es"
+) {
+  try {
+    const user = await getCurrentUser();
+    await verifyConsultoraAccess(user.id, user.organizationId, clientOrgId);
+
+    // Verify system belongs to client
+    const [system] = await db.select().from(aiSystems).where(
+      and(eq(aiSystems.id, aiSystemId), eq(aiSystems.organizationId, clientOrgId))
+    ).limit(1);
+    if (!system) return { success: false, error: "System not found" };
+
+    const result = classifyRisk(answers, locale);
+
+    const existing = await db.select().from(riskAssessments)
+      .where(eq(riskAssessments.aiSystemId, aiSystemId))
+      .orderBy(desc(riskAssessments.version)).limit(1);
+
+    const nextVersion = existing.length > 0 ? existing[0].version + 1 : 1;
+
+    const [assessment] = await db.insert(riskAssessments).values({
+      aiSystemId,
+      organizationId: clientOrgId,
+      riskLevel: result.riskLevel,
+      isProhibited: result.isProhibited,
+      prohibitionReason: result.prohibitionReasons.join("; "),
+      applicableArticles: result.applicableArticles,
+      obligations: result.obligations,
+      assessmentData: answers,
+      assessmentScore: result.score,
+      recommendations: result.recommendations,
+      assessedBy: user.id,
+      version: nextVersion,
+    }).returning();
+
+    await logAction(user.id, user.organizationId, "assessment.created", "riskAssessment", assessment.id, {
+      aiSystemId, riskLevel: result.riskLevel, clientOrgId,
+    });
+
+    revalidatePath("/dashboard/consultora");
+    return { success: true, assessment, result };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
+  }
+}
+
+// ── Consultora: generate document for client's org ──
+export async function consultoraGenerateDocument(
+  clientOrgId: string,
+  type: DocumentTemplateType,
+  aiSystemId?: string,
+  locale: Locale = "es"
+) {
+  try {
+    const user = await getCurrentUser();
+    await verifyConsultoraAccess(user.id, user.organizationId, clientOrgId);
+
+    const [org] = await db.select().from(organizations).where(eq(organizations.id, clientOrgId)).limit(1);
+    if (!org) return { success: false, error: "Organisation not found" };
+
+    let system = null;
+    let assessment = null;
+    let allSystems: AiSystem[] = [];
+
+    if (aiSystemId) {
+      const [s] = await db.select().from(aiSystems).where(
+        and(eq(aiSystems.id, aiSystemId), eq(aiSystems.organizationId, clientOrgId))
+      ).limit(1);
+      system = s || null;
+
+      if (system) {
+        const [a] = await db.select().from(riskAssessments)
+          .where(eq(riskAssessments.aiSystemId, aiSystemId))
+          .orderBy(desc(riskAssessments.version)).limit(1);
+        assessment = a || null;
+      }
+    }
+
+    if (type === "ai_usage_policy" || type === "ai_inventory") {
+      allSystems = await db.select().from(aiSystems).where(eq(aiSystems.organizationId, clientOrgId));
+    }
+
+    if (!system && type !== "ai_usage_policy" && type !== "ai_inventory") {
+      return { success: false, error: "AI system required for this document type" };
+    }
+
+    const generated = generateDocument(type, org, system!, assessment, allSystems, locale);
+    const template = getDocumentTemplates(locale)[type];
+
+    const existing = aiSystemId
+      ? await db.select().from(documents).where(
+          and(eq(documents.organizationId, clientOrgId), eq(documents.type, type), eq(documents.aiSystemId, aiSystemId))
+        ).orderBy(desc(documents.version)).limit(1)
+      : await db.select().from(documents).where(
+          and(eq(documents.organizationId, clientOrgId), eq(documents.type, type))
+        ).orderBy(desc(documents.version)).limit(1);
+
+    const nextVersion = existing.length > 0 ? existing[0].version + 1 : 1;
+
+    const [doc] = await db.insert(documents).values({
+      organizationId: clientOrgId,
+      aiSystemId: aiSystemId || null,
+      type,
+      title: generated.title,
+      content: generated as unknown as Record<string, unknown>,
+      status: "draft",
+      version: nextVersion,
+      createdBy: user.id,
+    }).returning();
+
+    await logAction(user.id, user.organizationId, "document.generated", "document", doc.id, {
+      type, title: generated.title, clientOrgId,
+    });
+
+    revalidatePath("/dashboard/consultora");
+    return { success: true, document: doc, markdown: documentToMarkdown(generated, locale) };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
+  }
+}
+
 export async function getWhitelabelConfig() {
   const user = await getCurrentUser();
   const [org] = await db.select().from(organizations).where(eq(organizations.id, user.organizationId)).limit(1);
