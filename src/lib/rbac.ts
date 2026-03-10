@@ -42,6 +42,7 @@ export type Permission =
   | "alerts.manage"
   | "org.read"
   | "org.update"
+  | "org.delete"
   | "billing.manage"
   | "users.read"
   | "users.invite"
@@ -71,6 +72,7 @@ const permissionMap: Record<Permission, UserRole> = {
   "documents.approve": "admin",
   "alerts.manage": "admin",
   "org.update": "admin",
+  "org.delete": "owner",
   "billing.manage": "admin",
   "users.invite": "admin",
   "users.remove": "admin",
