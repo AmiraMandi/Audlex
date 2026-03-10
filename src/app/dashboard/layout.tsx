@@ -83,8 +83,8 @@ export default async function DashboardLayout({
           </main>
         </div>
 
-        {/* AI Assistant */}
-        <AiAssistant />
+        {/* AI Assistant — disabled for MVP launch, re-enable later */}
+        {/* <AiAssistant /> */}
       </div>
   );
 }
