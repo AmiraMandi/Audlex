@@ -383,22 +383,30 @@ export async function updateAiSystem(id: string, input: Partial<CreateSystemInpu
 }
 
 export async function deleteAiSystem(id: string) {
-  const user = await getCurrentUser();
-  assertPermission(user.role as UserRole, "systems.delete");
+  try {
+    const user = await getCurrentUser();
+    assertPermission(user.role as UserRole, "systems.delete");
 
-  await db
-    .delete(aiSystems)
-    .where(
-      and(
-        eq(aiSystems.id, id),
-        eq(aiSystems.organizationId, user.organizationId)
-      )
-    );
+    const systemId = z.string().uuid().parse(id);
 
-  await logAction(user.id, user.organizationId, "ai_system.deleted", "aiSystem", id);
+    await db
+      .delete(aiSystems)
+      .where(
+        and(
+          eq(aiSystems.id, systemId),
+          eq(aiSystems.organizationId, user.organizationId)
+        )
+      );
 
-  revalidatePath("/dashboard/inventario");
-  revalidatePath("/dashboard");
+    await logAction(user.id, user.organizationId, "ai_system.deleted", "aiSystem", systemId);
+
+    revalidatePath("/dashboard/inventario");
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
+  }
 }
 
 // ============================================================
@@ -546,6 +554,15 @@ export async function getCurrentOrganization() {
   return org || null;
 }
 
+const updateOrgSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  cifNif: z.string().max(50).optional(),
+  sector: z.string().max(100).optional(),
+  sectorDescription: z.string().max(500).optional(),
+  size: z.enum(["micro", "small", "medium", "large"]).optional(),
+  website: z.string().url().max(500).optional().or(z.literal("")),
+});
+
 export async function updateOrganization(input: {
   name?: string;
   cifNif?: string;
@@ -554,16 +571,22 @@ export async function updateOrganization(input: {
   size?: "micro" | "small" | "medium" | "large";
   website?: string;
 }) {
-  const user = await getCurrentUser();
-  assertPermission(user.role as UserRole, "org.update");
-  const [updated] = await db
-    .update(organizations)
-    .set({ ...input, updatedAt: new Date() })
-    .where(eq(organizations.id, user.organizationId))
-    .returning();
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/configuracion");
-  return updated;
+  try {
+    const user = await getCurrentUser();
+    assertPermission(user.role as UserRole, "org.update");
+    const parsed = updateOrgSchema.parse(input);
+    const [updated] = await db
+      .update(organizations)
+      .set({ ...parsed, updatedAt: new Date() })
+      .where(eq(organizations.id, user.organizationId))
+      .returning();
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/configuracion");
+    return updated;
+  } catch (err) {
+    console.error("[updateOrganization]", err);
+    return null;
+  }
 }
 
 // ============================================================
@@ -763,23 +786,30 @@ export async function updateDocumentStatus(
   id: string,
   status: "draft" | "review" | "approved" | "expired"
 ) {
-  const user = await getCurrentUser();
-  const [updated] = await db
-    .update(documents)
-    .set({
-      status,
-      updatedAt: new Date(),
-      ...(status === "approved" ? { approvedBy: user.id, approvedAt: new Date() } : {}),
-    })
-    .where(
-      and(
-        eq(documents.id, id),
-        eq(documents.organizationId, user.organizationId)
+  try {
+    const user = await getCurrentUser();
+    assertPermission(user.role as UserRole, "documents.update");
+    const validStatus = z.enum(["draft", "review", "approved", "expired"]).parse(status);
+    const [updated] = await db
+      .update(documents)
+      .set({
+        status: validStatus,
+        updatedAt: new Date(),
+        ...(validStatus === "approved" ? { approvedBy: user.id, approvedAt: new Date() } : {}),
+      })
+      .where(
+        and(
+          eq(documents.id, id),
+          eq(documents.organizationId, user.organizationId)
+        )
       )
-    )
-    .returning();
-  revalidatePath("/dashboard/documentacion");
-  return updated;
+      .returning();
+    revalidatePath("/dashboard/documentacion");
+    return updated;
+  } catch (err) {
+    console.error("[updateDocumentStatus]", err);
+    return null;
+  }
 }
 
 export async function deleteDocument(id: string) {
@@ -912,30 +942,38 @@ export async function updateComplianceItemStatus(
   notes?: string,
   evidenceUrl?: string
 ) {
-  const user = await getCurrentUser();
+  try {
+    const user = await getCurrentUser();
+    const validStatus = z.enum(["pending", "in_progress", "completed", "not_applicable"]).parse(status);
+    const safeNotes = notes ? z.string().max(5000).parse(notes) : undefined;
+    const safeUrl = evidenceUrl ? z.string().max(2000).parse(evidenceUrl) : undefined;
 
-  const [updated] = await db
-    .update(complianceItems)
-    .set({
-      status,
-      notes: notes || undefined,
-      evidenceUrl: evidenceUrl || undefined,
-      ...(status === "completed"
-        ? { completedAt: new Date(), completedBy: user.id }
-        : { completedAt: null, completedBy: null }),
-    })
-    .where(
-      and(
-        eq(complianceItems.id, id),
-        eq(complianceItems.organizationId, user.organizationId)
+    const [updated] = await db
+      .update(complianceItems)
+      .set({
+        status: validStatus,
+        notes: safeNotes,
+        evidenceUrl: safeUrl,
+        ...(validStatus === "completed"
+          ? { completedAt: new Date(), completedBy: user.id }
+          : { completedAt: null, completedBy: null }),
+      })
+      .where(
+        and(
+          eq(complianceItems.id, id),
+          eq(complianceItems.organizationId, user.organizationId)
+        )
       )
-    )
-    .returning();
+      .returning();
 
-  revalidatePath("/dashboard/checklist");
-  revalidatePath("/dashboard");
+    revalidatePath("/dashboard/checklist");
+    revalidatePath("/dashboard");
 
-  return updated;
+    return updated;
+  } catch (err) {
+    console.error("[updateComplianceItemStatus]", err);
+    return null;
+  }
 }
 
 // ============================================================
@@ -1096,18 +1134,31 @@ export async function getAlerts() {
 }
 
 export async function markAlertRead(id: string) {
-  const user = await getCurrentUser();
-  await db
-    .update(alerts)
-    .set({ isRead: true })
-    .where(
-      and(
-        eq(alerts.id, id),
-        eq(alerts.organizationId, user.organizationId)
-      )
-    );
-  revalidatePath("/dashboard");
+  try {
+    const user = await getCurrentUser();
+    const alertId = z.string().uuid().parse(id);
+    await db
+      .update(alerts)
+      .set({ isRead: true })
+      .where(
+        and(
+          eq(alerts.id, alertId),
+          eq(alerts.organizationId, user.organizationId)
+        )
+      );
+    revalidatePath("/dashboard");
+  } catch (err) {
+    console.error("[markAlertRead]", err);
+  }
 }
+
+const createAlertSchema = z.object({
+  type: z.enum(["deadline", "regulation_update", "compliance_gap", "document_expiry", "system_review"]),
+  title: z.string().min(1).max(500),
+  message: z.string().min(1).max(2000),
+  severity: z.enum(["info", "warning", "critical"]),
+  actionUrl: z.string().max(500).optional(),
+});
 
 export async function createAlert(input: {
   type: "deadline" | "regulation_update" | "compliance_gap" | "document_expiry" | "system_review";
@@ -1116,16 +1167,22 @@ export async function createAlert(input: {
   severity: "info" | "warning" | "critical";
   actionUrl?: string;
 }) {
-  const user = await getCurrentUser();
-  const [alert] = await db
-    .insert(alerts)
-    .values({
-      organizationId: user.organizationId,
-      ...input,
-    })
-    .returning();
-  revalidatePath("/dashboard");
-  return alert;
+  try {
+    const user = await getCurrentUser();
+    const parsed = createAlertSchema.parse(input);
+    const [alert] = await db
+      .insert(alerts)
+      .values({
+        ...parsed,
+        organizationId: user.organizationId,  // Always override — never trust client
+      })
+      .returning();
+    revalidatePath("/dashboard");
+    return alert;
+  } catch (err) {
+    console.error("[createAlert]", err);
+    return null;
+  }
 }
 
 // ============================================================
@@ -1173,6 +1230,14 @@ export async function getTeamMembers() {
 export async function inviteTeamMember(email: string, role: "admin" | "member" | "viewer") {
   const user = await getCurrentUser();
   assertPermission(user.role as UserRole, "users.invite");
+
+  const inviteSchema = z.object({
+    email: z.string().email().max(255),
+    role: z.enum(["admin", "member", "viewer"]),
+  });
+  const parsed = inviteSchema.parse({ email, role });
+  email = parsed.email;
+  role = parsed.role;
 
   // Check plan limits
   const [org] = await db
@@ -1229,10 +1294,17 @@ export async function inviteTeamMember(email: string, role: "admin" | "member" |
 }
 
 export async function updateTeamMemberRole(memberId: string, newRole: "admin" | "member" | "viewer") {
+  try {
   const user = await getCurrentUser();
   assertPermission(user.role as UserRole, "users.changeRole");
 
-  if (memberId === user.id) {
+  const roleSchema = z.object({
+    memberId: z.string().uuid(),
+    newRole: z.enum(["admin", "member", "viewer"]),
+  });
+  const parsed = roleSchema.parse({ memberId, newRole });
+
+  if (parsed.memberId === user.id) {
     throw new Error("You cannot change your own role / No puedes cambiar tu propio rol");
   }
 
@@ -1241,7 +1313,7 @@ export async function updateTeamMemberRole(memberId: string, newRole: "admin" | 
     .from(users)
     .where(
       and(
-        eq(users.id, memberId),
+        eq(users.id, parsed.memberId),
         eq(users.organizationId, user.organizationId)
       )
     )
@@ -1252,23 +1324,30 @@ export async function updateTeamMemberRole(memberId: string, newRole: "admin" | 
 
   await db
     .update(users)
-    .set({ role: newRole, updatedAt: new Date() })
-    .where(eq(users.id, memberId));
+    .set({ role: parsed.newRole, updatedAt: new Date() })
+    .where(eq(users.id, parsed.memberId));
 
-  await logAction(user.id, user.organizationId, "user.role_changed", "user", memberId, {
+  await logAction(user.id, user.organizationId, "user.role_changed", "user", parsed.memberId, {
     oldRole: member.role,
-    newRole,
+    newRole: parsed.newRole,
   });
 
   revalidatePath("/dashboard/configuracion");
   return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
+  }
 }
 
 export async function removeTeamMember(memberId: string) {
+  try {
   const user = await getCurrentUser();
   assertPermission(user.role as UserRole, "users.remove");
 
-  if (memberId === user.id) {
+  const id = z.string().uuid().parse(memberId);
+
+  if (id === user.id) {
     throw new Error("You cannot remove yourself / No puedes eliminarte a ti mismo");
   }
 
@@ -1277,7 +1356,7 @@ export async function removeTeamMember(memberId: string) {
     .from(users)
     .where(
       and(
-        eq(users.id, memberId),
+        eq(users.id, id),
         eq(users.organizationId, user.organizationId)
       )
     )
@@ -1288,14 +1367,18 @@ export async function removeTeamMember(memberId: string) {
 
   await db
     .delete(users)
-    .where(eq(users.id, memberId));
+    .where(eq(users.id, id));
 
-  await logAction(user.id, user.organizationId, "user.removed", "user", memberId, {
+  await logAction(user.id, user.organizationId, "user.removed", "user", id, {
     removedEmail: member.email,
   });
 
   revalidatePath("/dashboard/configuracion");
   return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
+  }
 }
 
 // ============================================================
@@ -1306,6 +1389,8 @@ export async function getAuditLog(limit = 100, offset = 0) {
   try {
     const user = await getCurrentUser();
     assertPermission(user.role as UserRole, "org.read");
+    limit = Math.min(Math.max(1, limit), 500);
+    offset = Math.max(0, offset);
     const logs = await db
       .select({
         id: auditLog.id,
@@ -1336,6 +1421,7 @@ export async function getAuditLog(limit = 100, offset = 0) {
 
 export async function exportUserData() {
   const user = await getCurrentUser();
+  assertPermission(user.role as UserRole, "org.update");
 
   const [org] = await db.select().from(organizations).where(eq(organizations.id, user.organizationId)).limit(1);
   const systemsList = await db.select().from(aiSystems).where(eq(aiSystems.organizationId, user.organizationId));
@@ -1360,6 +1446,7 @@ export async function exportUserData() {
 
 export async function deleteAccount() {
   const user = await getCurrentUser();
+  assertPermission(user.role as UserRole, "org.delete");
   const supabase = await createSupabaseServer();
 
   // Log before deletion (audit trail)
@@ -1419,20 +1506,25 @@ export async function getRecentActivity(limit = 5) {
 // ============================================================
 
 export async function updateProfile(data: { name: string }) {
-  const user = await getCurrentUser();
+  try {
+    const user = await getCurrentUser();
 
-  const nameSchema = z.string().min(2).max(100);
-  const name = nameSchema.parse(data.name);
+    const nameSchema = z.string().min(2).max(100);
+    const name = nameSchema.parse(data.name);
 
-  await db
-    .update(users)
-    .set({ name, updatedAt: new Date() })
-    .where(eq(users.id, user.id));
+    await db
+      .update(users)
+      .set({ name, updatedAt: new Date() })
+      .where(eq(users.id, user.id));
 
-  await logAction(user.id, user.organizationId, "profile_updated", "user", user.id);
+    await logAction(user.id, user.organizationId, "profile_updated", "user", user.id);
 
-  revalidatePath("/dashboard/configuracion");
-  return { success: true };
+    revalidatePath("/dashboard/configuracion");
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
+  }
 }
 
 // ============================================================
@@ -1440,30 +1532,36 @@ export async function updateProfile(data: { name: string }) {
 // ============================================================
 
 export async function updateDocumentContent(docId: string, content: Record<string, unknown>) {
-  const user = await getCurrentUser();
+  try {
+    const user = await getCurrentUser();
+    const id = z.string().uuid().parse(docId);
 
-  const [doc] = await db
-    .select()
-    .from(documents)
-    .where(
-      and(
-        eq(documents.id, docId),
-        eq(documents.organizationId, user.organizationId)
+    const [doc] = await db
+      .select()
+      .from(documents)
+      .where(
+        and(
+          eq(documents.id, id),
+          eq(documents.organizationId, user.organizationId)
+        )
       )
-    )
-    .limit(1);
+      .limit(1);
 
-  if (!doc) throw new Error("Document not found / Documento no encontrado");
+    if (!doc) throw new Error("Document not found / Documento no encontrado");
 
-  await db
-    .update(documents)
-    .set({ content, updatedAt: new Date() })
-    .where(eq(documents.id, docId));
+    await db
+      .update(documents)
+      .set({ content, updatedAt: new Date() })
+      .where(eq(documents.id, id));
 
-  await logAction(user.id, user.organizationId, "document_updated", "document", docId);
+    await logAction(user.id, user.organizationId, "document_updated", "document", id);
 
-  revalidatePath("/dashboard/documentacion");
-  return { success: true };
+    revalidatePath("/dashboard/documentacion");
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
+  }
 }
 
 // ============================================================
@@ -1473,7 +1571,9 @@ export async function updateDocumentContent(docId: string, content: Record<strin
 export async function globalSearch(query: string) {
   try {
     const user = await getCurrentUser();
-    const q = `%${query.toLowerCase()}%`;
+    const trimmed = query.trim().slice(0, 200);
+    if (trimmed.length < 1) return { systems: [], documents: [] };
+    const q = `%${trimmed.toLowerCase()}%`;
     const systemResults = await db
       .select({ id: aiSystems.id, name: aiSystems.name, category: aiSystems.category })
       .from(aiSystems)
@@ -1532,6 +1632,8 @@ export async function getConsultoraClients() {
 export async function addConsultoraClient(clientEmail: string) {
   const user = await getCurrentUser();
   assertPermission(user.role as UserRole, "org.update");
+
+  clientEmail = z.string().email().max(255).parse(clientEmail);
 
   const [org] = await db.select().from(organizations).where(eq(organizations.id, user.organizationId)).limit(1);
   if (!org || org.plan !== "consultora") {

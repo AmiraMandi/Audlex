@@ -60,8 +60,6 @@ export async function POST(request: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[Stripe Webhook] Signature verification FAILED:", message);
-    console.error("[Stripe Webhook] Secret starts with:", webhookSecret.substring(0, 10) + "...");
-    console.error("[Stripe Webhook] Sig starts with:", sig.substring(0, 20) + "...");
     return NextResponse.json({ error: "Webhook signature verification failed" }, { status: 400 });
   }
 

@@ -3,8 +3,16 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { users, organizations, aiSystems } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 
 function msg(locale: string, es: string, en: string) { return locale === "en" ? en : es; }
+
+const onboardingSchema = z.object({
+  companyName: z.string().min(1).max(200).optional(),
+  sector: z.string().max(100).optional(),
+  size: z.enum(["micro", "small", "medium", "large"]).optional(),
+  selectedSystem: z.string().max(100).optional(),
+});
 
 // Map onboarding system keys to default names, categories, and purposes
 const SYSTEM_DEFAULTS: Record<string, { name: string; category: string; purpose: string }> = {
@@ -56,7 +64,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { companyName, sector, size, selectedSystem } = body;
+    const { companyName, sector, size, selectedSystem } = onboardingSchema.parse(body);
 
     // Update organization
     if (companyName || sector || size) {

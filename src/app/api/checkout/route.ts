@@ -185,7 +185,7 @@ export async function POST(request: Request) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("[Checkout] FATAL error:", errorMessage, error);
     return NextResponse.json(
-      { error: msg(locale, `Error al crear sesión de pago: ${errorMessage}`, `Error creating checkout: ${errorMessage}`) },
+      { error: msg(locale, "Error al crear sesión de pago. Inténtalo de nuevo o contacta soporte.", "Error creating checkout session. Please try again or contact support.") },
       { status: 500 }
     );
   }

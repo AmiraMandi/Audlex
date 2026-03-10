@@ -160,22 +160,14 @@ export async function POST() {
     console.log("[sync-plan] Matched planInfo:", planInfo);
 
     if (!planInfo) {
-      // Log detailed info for debugging
+      // Log detailed info for debugging (server-side only)
       console.error("[sync-plan] PRICE ID NOT IN MAPPING!");
       console.error("[sync-plan] priceId from Stripe:", priceId);
       console.error("[sync-plan] Available price IDs in mapping:", JSON.stringify(Object.keys(planMapping)));
-      console.error("[sync-plan] Env vars:", {
-        STRIPE_PRICE_STARTER: process.env.STRIPE_PRICE_STARTER?.substring(0, 20),
-        STRIPE_PRICE_BUSINESS: process.env.STRIPE_PRICE_BUSINESS?.substring(0, 20),
-        STRIPE_PRICE_ENTERPRISE: process.env.STRIPE_PRICE_ENTERPRISE?.substring(0, 20),
-        STRIPE_PRICE_CONSULTORA: process.env.STRIPE_PRICE_CONSULTORA?.substring(0, 20),
-      });
 
       return NextResponse.json({ 
         synced: false, 
-        reason: `Price ID from Stripe (${priceId}) does not match any configured plan. Check STRIPE_PRICE_* env vars in Vercel.`,
-        stripePriceId: priceId,
-        configuredPriceIds: Object.keys(planMapping),
+        reason: "Plan sync failed. The subscription price does not match any configured plan. Contact support.",
       });
     }
 
@@ -201,8 +193,8 @@ export async function POST() {
       subscriptionId: subscription.id,
     });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error("[sync-plan] FATAL Error:", msg, error);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error("[sync-plan] FATAL Error:", errMsg, error);
+    return NextResponse.json({ error: "Plan sync failed. Please try again or contact support." }, { status: 500 });
   }
 }
