@@ -133,8 +133,20 @@ export async function POST(request: Request) {
 
     const origin = new URL(request.url).origin;
 
-    // Ensure we have a Stripe customer ID to avoid duplicates
+    // Ensure we have a valid Stripe customer ID to avoid duplicates
     let customerId = org.stripeCustomerId || undefined;
+
+    // Verify the stored customer actually exists in Stripe (could be from test mode)
+    if (customerId) {
+      try {
+        await getStripe().customers.retrieve(customerId);
+        console.log("[Checkout] Verified existing Stripe customer:", customerId);
+      } catch {
+        console.log("[Checkout] Stored customer not found in Stripe (test/live mismatch?), will create new:", customerId);
+        customerId = undefined;
+      }
+    }
+
     if (!customerId) {
       try {
         const customer = await getStripe().customers.create({

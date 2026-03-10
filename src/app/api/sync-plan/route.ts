@@ -69,7 +69,18 @@ export async function POST() {
 
     let stripeCustomerId = org.stripeCustomerId;
 
-    // If no stripeCustomerId stored, search Stripe by email
+    // Verify stored customer exists in Stripe (could be from test mode)
+    if (stripeCustomerId) {
+      try {
+        await getStripe().customers.retrieve(stripeCustomerId);
+        console.log("[sync-plan] Verified existing Stripe customer:", stripeCustomerId);
+      } catch {
+        console.log("[sync-plan] Stored customer not found in Stripe (test/live mismatch?), clearing:", stripeCustomerId);
+        stripeCustomerId = null;
+      }
+    }
+
+    // If no valid stripeCustomerId, search Stripe by email
     if (!stripeCustomerId) {
       console.log("[sync-plan] No stripeCustomerId, searching by email:", user.email);
       const customers = await getStripe().customers.list({
