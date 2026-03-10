@@ -788,7 +788,7 @@ export async function updateDocumentStatus(
 ) {
   try {
     const user = await getCurrentUser();
-    assertPermission(user.role as UserRole, "documents.update");
+    assertPermission(user.role as UserRole, "documents.approve");
     const validStatus = z.enum(["draft", "review", "approved", "expired"]).parse(status);
     const [updated] = await db
       .update(documents)
