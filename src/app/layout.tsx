@@ -86,7 +86,9 @@ export default function RootLayout({
             "logo": "https://www.audlex.com/logo.svg",
             "description": "Plataforma de compliance con el EU AI Act para empresas. Clasifica tus sistemas de IA, genera documentación y cumple con la normativa europea.",
             "foundingDate": "2025",
-            "sameAs": []
+            "sameAs": [
+              "https://www.linkedin.com/company/audlex"
+            ]
           }) }}
         />
         {/* JSON-LD: SoftwareApplication */}

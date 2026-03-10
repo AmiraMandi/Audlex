@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Página no encontrada",
+  robots: { index: false, follow: false },
+};
 
 export default function NotFound() {
   return (

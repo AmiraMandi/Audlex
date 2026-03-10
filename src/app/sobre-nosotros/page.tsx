@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/sobre-nosotros",
   },
+  openGraph: {
+    title: "Sobre nosotros — Audlex",
+    description: "Conoce al equipo detrás de Audlex y nuestra misión de democratizar el cumplimiento del EU AI Act.",
+    url: "https://www.audlex.com/sobre-nosotros",
+  },
 };
 
 export default function SobreNosotrosPage() {

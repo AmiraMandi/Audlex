@@ -20,13 +20,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${BASE_URL}/sobre-nosotros`,
-      lastModified: currentDate,
+      lastModified: new Date("2025-12-01"),
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
       url: `${BASE_URL}/trust`,
-      lastModified: currentDate,
+      lastModified: new Date("2025-12-01"),
       changeFrequency: "monthly",
       priority: 0.7,
     },
@@ -38,7 +38,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${BASE_URL}/demo`,
-      lastModified: currentDate,
+      lastModified: new Date("2026-01-15"),
       changeFrequency: "monthly",
       priority: 0.9,
     },
@@ -56,19 +56,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const legalRoutes: MetadataRoute.Sitemap = [
     {
       url: `${BASE_URL}/legal/privacidad`,
-      lastModified: currentDate,
+      lastModified: new Date("2025-10-01"),
       changeFrequency: "yearly",
       priority: 0.3,
     },
     {
       url: `${BASE_URL}/legal/terminos`,
-      lastModified: currentDate,
+      lastModified: new Date("2025-10-01"),
       changeFrequency: "yearly",
       priority: 0.3,
     },
     {
       url: `${BASE_URL}/legal/cookies`,
-      lastModified: currentDate,
+      lastModified: new Date("2025-10-01"),
       changeFrequency: "yearly",
       priority: 0.3,
     },

@@ -172,7 +172,7 @@ export default async function BlogArticlePage({ params }: { params: Promise<{ sl
       "url": "https://www.audlex.com",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://www.audlex.com/logo.png",
+        "url": "https://www.audlex.com/logo.svg",
       },
     },
     "description": article.content.find((b) => b.type === "p")?.text,

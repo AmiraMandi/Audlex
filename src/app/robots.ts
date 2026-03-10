@@ -17,6 +17,7 @@ export default function robots(): MetadataRoute.Robots {
           "/blog/*",
           "/sobre-nosotros",
           "/trust",
+          "/demo",
           "/legal/*",
         ],
         disallow: [
