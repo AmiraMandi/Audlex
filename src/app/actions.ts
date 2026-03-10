@@ -1629,57 +1629,79 @@ export async function getConsultoraClients() {
   return clients;
 }
 
-export async function addConsultoraClient(clientEmail: string) {
-  const user = await getCurrentUser();
-  assertPermission(user.role as UserRole, "org.update");
+const createClientSchema = z.object({
+  name: z.string().min(1, "Nombre requerido").max(200),
+  sector: z.string().max(100).optional().or(z.literal("")),
+  size: z.enum(["micro", "small", "medium", "large"]).default("micro"),
+  cifNif: z.string().max(50).optional().or(z.literal("")),
+  contactEmail: z.string().email().max(255).optional().or(z.literal("")),
+});
 
-  clientEmail = z.string().email().max(255).parse(clientEmail);
+export async function addConsultoraClient(input: {
+  name: string;
+  sector?: string;
+  size?: "micro" | "small" | "medium" | "large";
+  cifNif?: string;
+  contactEmail?: string;
+}) {
+  try {
+    const user = await getCurrentUser();
+    assertPermission(user.role as UserRole, "org.update");
 
-  const [org] = await db.select().from(organizations).where(eq(organizations.id, user.organizationId)).limit(1);
-  if (!org || org.plan !== "consultora") {
-    throw new Error("Consultora plan required / Plan Consultora requerido");
+    const [org] = await db.select().from(organizations).where(eq(organizations.id, user.organizationId)).limit(1);
+    if (!org || org.plan !== "consultora") {
+      return { success: false, error: "Plan Consultora requerido / Consultora plan required" };
+    }
+
+    const parsed = createClientSchema.parse(input);
+
+    // Create a new organization for the client
+    const [newOrg] = await db.insert(organizations).values({
+      name: parsed.name,
+      sector: parsed.sector || null,
+      size: parsed.size,
+      cifNif: parsed.cifNif || null,
+      plan: "free",
+      maxAiSystems: 50,
+      maxUsers: 10,
+    }).returning();
+
+    // Link it to the consultora
+    await db.insert(consultoraClients).values({
+      consultoraOrgId: user.organizationId,
+      clientOrgId: newOrg.id,
+    });
+
+    await logAction(user.id, user.organizationId, "consultora_client_added", "organization", newOrg.id);
+
+    revalidatePath("/dashboard/consultora");
+    return { success: true, clientOrgId: newOrg.id };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
   }
-
-  // Find the client org by user email
-  const [clientUser] = await db.select().from(users).where(eq(users.email, clientEmail)).limit(1);
-  if (!clientUser) throw new Error("User not found / Usuario no encontrado");
-
-  // Check not already linked
-  const existing = await db.select().from(consultoraClients).where(
-    and(
-      eq(consultoraClients.consultoraOrgId, user.organizationId),
-      eq(consultoraClients.clientOrgId, clientUser.organizationId)
-    )
-  ).limit(1);
-
-  if (existing.length > 0) throw new Error("Client already linked / Cliente ya vinculado");
-
-  await db.insert(consultoraClients).values({
-    consultoraOrgId: user.organizationId,
-    clientOrgId: clientUser.organizationId,
-  });
-
-  await logAction(user.id, user.organizationId, "consultora_client_added", "organization", clientUser.organizationId);
-
-  revalidatePath("/dashboard/consultora");
-  return { success: true };
 }
 
 export async function removeConsultoraClient(linkId: string) {
-  const user = await getCurrentUser();
-  assertPermission(user.role as UserRole, "org.update");
+  try {
+    const user = await getCurrentUser();
+    assertPermission(user.role as UserRole, "org.update");
 
-  await db.delete(consultoraClients).where(
-    and(
-      eq(consultoraClients.id, linkId),
-      eq(consultoraClients.consultoraOrgId, user.organizationId)
-    )
-  );
+    await db.delete(consultoraClients).where(
+      and(
+        eq(consultoraClients.id, linkId),
+        eq(consultoraClients.consultoraOrgId, user.organizationId)
+      )
+    );
 
-  await logAction(user.id, user.organizationId, "consultora_client_removed", "organization", linkId);
+    await logAction(user.id, user.organizationId, "consultora_client_removed", "organization", linkId);
 
-  revalidatePath("/dashboard/consultora");
-  return { success: true };
+    revalidatePath("/dashboard/consultora");
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
+  }
 }
 
 export async function getClientDashboardStats(clientOrgId: string) {

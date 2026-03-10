@@ -71,7 +71,7 @@ export default function ConsultoraPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addEmail, setAddEmail] = useState("");
+  const [newClient, setNewClient] = useState<{ name: string; sector: string; size: "micro" | "small" | "medium" | "large"; cifNif: string }>({ name: "", sector: "", size: "micro", cifNif: "" });
   const [adding, setAdding] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientDetail, setClientDetail] = useState<ClientDetailData | null>(null);
@@ -109,18 +109,21 @@ export default function ConsultoraPage() {
   }, []);
 
   async function handleAdd() {
-    if (!addEmail.trim()) return;
+    if (!newClient.name.trim()) return;
     setAdding(true);
     try {
-      await addConsultoraClient(addEmail.trim());
+      const result = await addConsultoraClient(newClient);
+      if (!result.success) {
+        toast.error(result.error || t("Error al crear cliente", "Error creating client"));
+        return;
+      }
       const data = await getConsultoraClients();
       setClients(data as Client[]);
       setShowAddModal(false);
-      setAddEmail("");
-      toast.success(t("Cliente añadido", "Client added"));
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t("Error al añadir cliente", "Error adding client");
-      toast.error(message);
+      setNewClient({ name: "", sector: "", size: "micro", cifNif: "" });
+      toast.success(t("Cliente creado", "Client created"));
+    } catch {
+      toast.error(t("Error al crear cliente", "Error creating client"));
     } finally {
       setAdding(false);
     }
@@ -129,7 +132,11 @@ export default function ConsultoraPage() {
   async function handleRemove(linkId: string) {
     if (!confirm(t("¿Eliminar este cliente?", "Remove this client?"))) return;
     try {
-      await removeConsultoraClient(linkId);
+      const result = await removeConsultoraClient(linkId);
+      if (!result.success) {
+        toast.error(result.error || "Error");
+        return;
+      }
       setClients((prev) => prev.filter((c) => c.id !== linkId));
       toast.success(t("Cliente eliminado", "Client removed"));
     } catch {
@@ -387,7 +394,7 @@ export default function ConsultoraPage() {
           <div className="flex justify-end">
             <Button onClick={() => setShowAddModal(true)}>
               <Plus className="h-4 w-4" />
-              {t("Añadir cliente", "Add client")}
+              {t("Nuevo cliente", "New client")}
             </Button>
           </div>
 
@@ -396,13 +403,13 @@ export default function ConsultoraPage() {
               icon={Users}
               title={t("Sin clientes aún", "No clients yet")}
               description={t(
-                "Añade tu primera organización cliente para empezar a gestionar su compliance.",
-                "Add your first client organisation to start managing their compliance."
+                "Crea tu primera organización cliente para empezar a gestionar su compliance.",
+                "Create your first client organisation to start managing their compliance."
               )}
             >
               <Button onClick={() => setShowAddModal(true)}>
                 <Plus className="h-4 w-4" />
-                {t("Añadir cliente", "Add client")}
+                {t("Nuevo cliente", "New client")}
               </Button>
             </EmptyState>
           ) : (
@@ -559,28 +566,55 @@ export default function ConsultoraPage() {
       {/* Add Client Modal */}
       <Modal
         open={showAddModal}
-        onClose={() => { setShowAddModal(false); setAddEmail(""); }}
-        title={t("Añadir cliente", "Add client")}
+        onClose={() => { setShowAddModal(false); setNewClient({ name: "", sector: "", size: "micro", cifNif: "" }); }}
+        title={t("Nuevo cliente", "New client")}
         description={t(
-          "Introduce el email de un usuario de la organización cliente. El cliente debe tener una cuenta en Audlex.",
-          "Enter the email of a user in the client organisation. The client must have an Audlex account."
+          "Crea una organización cliente para gestionar su compliance desde tu panel.",
+          "Create a client organisation to manage their compliance from your panel."
         )}
         size="sm"
       >
         <div className="space-y-4">
           <Input
-            label="Email"
-            type="email"
-            value={addEmail}
-            onChange={(e) => setAddEmail(e.target.value)}
-            placeholder="cliente@empresa.com"
+            label={t("Nombre de la empresa", "Company name")}
+            value={newClient.name}
+            onChange={(e) => setNewClient(prev => ({ ...prev, name: e.target.value }))}
+            placeholder={t("Empresa S.L.", "Acme Corp.")}
+            required
           />
+          <Input
+            label={t("CIF/NIF", "Tax ID")}
+            value={newClient.cifNif}
+            onChange={(e) => setNewClient(prev => ({ ...prev, cifNif: e.target.value }))}
+            placeholder="B12345678"
+          />
+          <Input
+            label={t("Sector", "Sector")}
+            value={newClient.sector}
+            onChange={(e) => setNewClient(prev => ({ ...prev, sector: e.target.value }))}
+            placeholder={t("Tecnología, Banca, Salud...", "Technology, Banking, Healthcare...")}
+          />
+          <div>
+            <label className="block text-sm font-medium text-text mb-1.5">
+              {t("Tamaño", "Size")}
+            </label>
+            <select
+              value={newClient.size}
+              onChange={(e) => setNewClient(prev => ({ ...prev, size: e.target.value as "micro" | "small" | "medium" | "large" }))}
+              className="flex h-10 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text transition focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            >
+              <option value="micro">{t("Micro (< 10)", "Micro (< 10)")}</option>
+              <option value="small">{t("Pequeña (10-49)", "Small (10-49)")}</option>
+              <option value="medium">{t("Mediana (50-249)", "Medium (50-249)")}</option>
+              <option value="large">{t("Grande (250+)", "Large (250+)")}</option>
+            </select>
+          </div>
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => { setShowAddModal(false); setAddEmail(""); }}>
+            <Button variant="outline" onClick={() => { setShowAddModal(false); setNewClient({ name: "", sector: "", size: "micro", cifNif: "" }); }}>
               {t("Cancelar", "Cancel")}
             </Button>
-            <Button onClick={handleAdd} disabled={adding || !addEmail.includes("@")}>
-              {adding ? "..." : t("Añadir", "Add")}
+            <Button onClick={handleAdd} disabled={adding || !newClient.name.trim()}>
+              {adding ? "..." : t("Crear cliente", "Create client")}
             </Button>
           </div>
         </div>
