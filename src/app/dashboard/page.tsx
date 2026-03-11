@@ -18,8 +18,10 @@ function daysUntil() {
 }
 
 export default async function DashboardPage() {
-  // Redirect to onboarding if not completed
+  // Single query to check onboarding + plan
   let shouldRedirectToOnboarding = false;
+  let shouldRedirectToConsultora = false;
+
   try {
     const supabase = await createSupabaseServer();
     const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -32,13 +34,18 @@ export default async function DashboardPage() {
 
       if (dbUser) {
         const [org] = await db
-          .select({ onboardingCompleted: organizations.onboardingCompleted })
+          .select({
+            onboardingCompleted: organizations.onboardingCompleted,
+            plan: organizations.plan,
+          })
           .from(organizations)
           .where(eq(organizations.id, dbUser.organizationId))
           .limit(1);
 
         if (org && !org.onboardingCompleted) {
           shouldRedirectToOnboarding = true;
+        } else if (org?.plan === "consultora") {
+          shouldRedirectToConsultora = true;
         }
       }
     }
@@ -46,34 +53,12 @@ export default async function DashboardPage() {
     // User not authenticated — layout will handle redirect
   }
 
+  // Redirects outside try/catch (redirect() throws internally)
   if (shouldRedirectToOnboarding) {
     redirect("/dashboard/onboarding");
   }
-
-  // Consultora plan → redirect to consultora panel
-  try {
-    const supabase2 = await createSupabaseServer();
-    const { data: { user: authUser2 } } = await supabase2.auth.getUser();
-    if (authUser2) {
-      const [dbUser2] = await db
-        .select({ organizationId: users.organizationId })
-        .from(users)
-        .where(eq(users.authProviderId, authUser2.id))
-        .limit(1);
-      if (dbUser2) {
-        const [org2] = await db
-          .select({ plan: organizations.plan })
-          .from(organizations)
-          .where(eq(organizations.id, dbUser2.organizationId))
-          .limit(1);
-        if (org2?.plan === "consultora") {
-          redirect("/dashboard/consultora");
-        }
-      }
-    }
-  } catch (e: unknown) {
-    // redirect() throws a special error — rethrow it
-    if (e && typeof e === "object" && "digest" in e) throw e;
+  if (shouldRedirectToConsultora) {
+    redirect("/dashboard/consultora");
   }
 
   let data = {

@@ -30,6 +30,21 @@ export function PendingPlanHandler() {
           planData = { plan: pendingPlanStr, isAnnual: false };
         }
 
+        // First check if user already has this plan (e.g. set via SQL for testing)
+        // If so, skip the checkout
+        try {
+          const orgRes = await fetch("/api/onboarding/plan");
+          if (orgRes.ok) {
+            const orgData = await orgRes.json();
+            if (orgData.plan === planData.plan) {
+              // User already has the target plan — skip checkout
+              return;
+            }
+          }
+        } catch {
+          // Continue with checkout if plan check fails
+        }
+
         const res = await fetch("/api/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
