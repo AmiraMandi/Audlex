@@ -5,6 +5,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RegistroPage() {
-  permanentRedirect("/auth/registro");
+export default async function RegistroPage({ searchParams }: { searchParams: Promise<{ plan?: string }> }) {
+  const params = await searchParams;
+  const qs = params.plan ? `?plan=${params.plan}` : "";
+  permanentRedirect(`/auth/registro${qs}`);
 }

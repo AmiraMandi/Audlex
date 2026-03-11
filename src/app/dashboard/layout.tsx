@@ -12,7 +12,7 @@ import { SearchModal } from "@/components/dashboard/search-modal";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { PendingPlanHandler } from "@/components/dashboard/pending-plan-handler";
 import { PageTransition } from "@/components/ui/page-transition";
-import { getCurrentOrganization } from "@/app/actions";
+import { getCurrentOrganization, getApplicableBranding } from "@/app/actions";
 
 export default async function DashboardLayout({
   children,
@@ -28,6 +28,7 @@ export default async function DashboardLayout({
 
   const org = await getCurrentOrganization();
   const userPlan = org?.plan || "free";
+  const branding = await getApplicableBranding();
 
   function daysUntil() {
     const deadline = new Date("2026-08-02");
@@ -49,15 +50,19 @@ export default async function DashboardLayout({
         <PendingPlanHandler />
         
         {/* Sidebar — client component with i18n */}
-        <DashboardSidebar plan={userPlan} />
+        <DashboardSidebar plan={userPlan} branding={branding} />
 
         {/* Main content */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Top bar */}
           <header className="flex items-center justify-between border-b border-border bg-surface-secondary px-4 sm:px-6 py-3">
             <div className="flex items-center gap-2 text-sm text-text-secondary">
-              <MobileSidebar userEmail={user.email ?? ""} daysUntilDeadline={daysUntil()} plan={userPlan} />
-              <Link href="/dashboard" className="hover:text-text transition hidden sm:block">Dashboard</Link>
+              <MobileSidebar userEmail={user.email ?? ""} daysUntilDeadline={daysUntil()} plan={userPlan} branding={branding} />
+              {branding ? (
+                <span className="hidden sm:block font-medium" style={{ color: branding.primaryColor }}>{branding.brandName}</span>
+              ) : (
+                <Link href="/dashboard" className="hover:text-text transition hidden sm:block">Dashboard</Link>
+              )}
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
               <SearchModal />

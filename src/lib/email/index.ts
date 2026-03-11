@@ -296,3 +296,47 @@ export async function sendAlertEmail({
     `, locale),
   });
 }
+
+// ─── Client invitation email ─────────────────────────────────────
+
+export async function sendClientInvitationEmail({
+  to,
+  clientOrgName,
+  invitationUrl,
+  locale = "es",
+}: {
+  to: string;
+  clientOrgName: string;
+  invitationUrl: string;
+  locale?: Locale;
+}) {
+  const safeName = escapeHtml(clientOrgName);
+  const en = locale === "en";
+
+  return safeSend({
+    from: FROM_EMAIL,
+    to,
+    subject: en
+      ? `Invitation to ${clientOrgName} on Audlex — EU AI Act Compliance`
+      : `Invitación a ${clientOrgName} en Audlex — Compliance EU AI Act`,
+    html: baseLayout(en ? `
+      <h1>You've been invited!</h1>
+      <p>You have been invited to manage EU AI Act compliance for <strong>${safeName}</strong> on Audlex.</p>
+      <div class="highlight">
+        <strong>What you can do:</strong>
+        <p style="margin-top:8px">1. Classify your AI systems' risk level<br/>2. Generate up to 13 mandatory documents<br/>3. Monitor compliance from a dashboard</p>
+      </div>
+      <p><a href="${invitationUrl}" class="btn">Accept Invitation</a></p>
+      <p style="font-size:12px;color:#a1a1aa;">This link expires in 7 days. If you did not request this invitation, please ignore this email.</p>
+    ` : `
+      <h1>¡Has sido invitado/a!</h1>
+      <p>Has sido invitado/a a gestionar el compliance del EU AI Act para <strong>${safeName}</strong> en Audlex.</p>
+      <div class="highlight">
+        <strong>¿Qué podrás hacer?</strong>
+        <p style="margin-top:8px">1. Clasificar el nivel de riesgo de tus sistemas IA<br/>2. Generar hasta 13 documentos obligatorios<br/>3. Monitorizar el compliance desde un dashboard</p>
+      </div>
+      <p><a href="${invitationUrl}" class="btn">Aceptar invitación</a></p>
+      <p style="font-size:12px;color:#a1a1aa;">Este enlace expira en 7 días. Si no solicitaste esta invitación, ignora este email.</p>
+    `, locale),
+  });
+}

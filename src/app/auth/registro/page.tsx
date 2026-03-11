@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { Loader2, Check } from "lucide-react";
 import { useLocale } from "@/hooks/use-locale";
 import { tp } from "@/lib/i18n/public-translations";
+import { Suspense } from "react";
 
-export default function RegistroPage() {
+function RegistroForm() {
   const [step, setStep] = useState<"auth" | "company">("auth");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,9 +22,18 @@ export default function RegistroPage() {
   const [error, setError] = useState("");
   const [isDark, setIsDark] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createSupabaseBrowser();
   const { locale } = useLocale();
   const i = (key: string) => tp(locale, key);
+
+  // Store pending plan from URL (e.g. /registro?plan=consultora)
+  useEffect(() => {
+    const planFromUrl = searchParams.get("plan");
+    if (planFromUrl && ["starter", "business", "enterprise", "consultora"].includes(planFromUrl)) {
+      localStorage.setItem("pending_plan", JSON.stringify({ plan: planFromUrl, isAnnual: false }));
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const checkTheme = () => {
@@ -324,5 +334,17 @@ export default function RegistroPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function RegistroPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-surface-tertiary">
+        <Loader2 className="h-6 w-6 animate-spin text-brand-500" />
+      </div>
+    }>
+      <RegistroForm />
+    </Suspense>
   );
 }

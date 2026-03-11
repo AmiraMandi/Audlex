@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import {
   Building2, Plus, Trash2, Users, FileText, Cpu,
   ChevronRight, ArrowLeft, Shield, CheckCircle2, AlertTriangle,
-  Palette,
+  Palette, Mail, CreditCard, Send, Copy, Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import {
   getConsultoraClients, addConsultoraClient, removeConsultoraClient,
   getClientDetail, getWhitelabelConfig, saveWhitelabelConfig,
   consultoraCreateSystem, consultoraGenerateDocument,
+  getConsultoraBillingInfo, sendClientInvitation,
 } from "@/app/actions";
 import { toast } from "sonner";
 import { useLocale } from "@/hooks/use-locale";
@@ -46,7 +47,7 @@ interface WhitelabelData {
   footerText: string;
 }
 
-type Tab = "clients" | "branding";
+type Tab = "clients" | "branding" | "billing";
 
 const riskColors: Record<string, string> = {
   unacceptable: "bg-red-500",
@@ -82,12 +83,22 @@ export default function ConsultoraPage() {
     brandName: "", logoUrl: "", primaryColor: "#2563EB", secondaryColor: "#1E40AF", footerText: "",
   });
   const [savingBranding, setSavingBranding] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   // System creation modal
   const [showSystemModal, setShowSystemModal] = useState(false);
   const [newSystem, setNewSystem] = useState({ name: "", category: "", purpose: "", provider: "", description: "" });
   const [creatingSys, setCreatingSys] = useState(false);
   // Document generation
   const [generatingDoc, setGeneratingDoc] = useState<string | null>(null);
+  // Billing info
+  const [billing, setBilling] = useState<{
+    basePriceMonthly: number; clientPriceMonthly: number; clientCount: number; totalMonthly: number; isAnnual: boolean;
+  } | null>(null);
+  // Client invitation
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteClientOrgId, setInviteClientOrgId] = useState("");
+  const [sendingInvite, setSendingInvite] = useState(false);
   const { locale } = useLocale();
   const t = (es: string, en: string) => locale === "en" ? en : es;
 
@@ -106,6 +117,9 @@ export default function ConsultoraPage() {
             footerText: config.footerText || "",
           });
         }
+        // Load billing info
+        const billingInfo = await getConsultoraBillingInfo();
+        if (billingInfo) setBilling(billingInfo);
       } catch {
         setNotConsultora(true);
       } finally {
@@ -129,6 +143,9 @@ export default function ConsultoraPage() {
       setShowAddModal(false);
       setNewClient({ name: "", sector: "", size: "micro", cifNif: "" });
       toast.success(t("Cliente creado", "Client created"));
+      // Refresh billing info
+      const billingInfo = await getConsultoraBillingInfo();
+      if (billingInfo) setBilling(billingInfo);
     } catch {
       toast.error(t("Error al crear cliente", "Error creating client"));
     } finally {
@@ -146,6 +163,9 @@ export default function ConsultoraPage() {
       }
       setClients((prev) => prev.filter((c) => c.id !== linkId));
       toast.success(t("Cliente eliminado", "Client removed"));
+      // Refresh billing info
+      const billingInfo = await getConsultoraBillingInfo();
+      if (billingInfo) setBilling(billingInfo);
     } catch {
       toast.error("Error");
     }
@@ -228,6 +248,46 @@ export default function ConsultoraPage() {
     }
   }
 
+  async function handleLogoUpload(file: File) {
+    setUploadingLogo(true);
+    try {
+      const formData = new FormData();
+      formData.append("logo", file);
+      const res = await fetch("/api/whitelabel-logo", { method: "POST", body: formData });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setBranding(prev => ({ ...prev, logoUrl: data.url }));
+        toast.success(t("Logo subido", "Logo uploaded"));
+      } else {
+        toast.error(data.error || t("Error al subir el logo", "Error uploading logo"));
+      }
+    } catch {
+      toast.error(t("Error al subir el logo", "Error uploading logo"));
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
+
+  async function handleSendInvitation() {
+    if (!inviteEmail.trim() || !inviteClientOrgId) return;
+    setSendingInvite(true);
+    try {
+      const result = await sendClientInvitation({ clientOrgId: inviteClientOrgId, email: inviteEmail });
+      if (result.success) {
+        toast.success(t("Invitación enviada", "Invitation sent"));
+        setShowInviteModal(false);
+        setInviteEmail("");
+        setInviteClientOrgId("");
+      } else {
+        toast.error(result.error || "Error");
+      }
+    } catch {
+      toast.error("Error");
+    } finally {
+      setSendingInvite(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -290,10 +350,16 @@ export default function ConsultoraPage() {
               </p>
             </div>
           </div>
-          <Button onClick={() => setShowSystemModal(true)}>
-            <Plus className="h-4 w-4" />
-            {t("Añadir sistema", "Add system")}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => { setInviteClientOrgId(selectedClient.clientOrgId); setShowInviteModal(true); }}>
+              <Mail className="h-4 w-4" />
+              {t("Invitar usuario", "Invite user")}
+            </Button>
+            <Button onClick={() => setShowSystemModal(true)}>
+              <Plus className="h-4 w-4" />
+              {t("Añadir sistema", "Add system")}
+            </Button>
+          </div>
         </div>
 
         {/* Stats Grid */}
@@ -540,6 +606,47 @@ export default function ConsultoraPage() {
             </div>
           </div>
         </Modal>
+
+        {/* Invite User Modal */}
+        <Modal
+          open={showInviteModal}
+          onClose={() => { setShowInviteModal(false); setInviteEmail(""); }}
+          title={t("Invitar usuario", "Invite user")}
+          description={t(
+            `Envía una invitación para que el cliente acceda a su propio dashboard y gestione su compliance.`,
+            `Send an invitation so the client can access their own dashboard and manage their compliance.`
+          )}
+          size="sm"
+        >
+          <div className="space-y-4">
+            <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+              <p className="text-xs text-blue-700">
+                <Mail className="h-3.5 w-3.5 inline mr-1" />
+                {t(
+                  "El usuario recibirá un email con un enlace para crear su cuenta. Una vez registrado, tendrá acceso a clasificar sistemas, generar documentos y monitorizar su compliance.",
+                  "The user will receive an email with a link to create their account. Once registered, they can classify systems, generate documents and monitor their compliance."
+                )}
+              </p>
+            </div>
+            <Input
+              label="Email"
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="cliente@empresa.com"
+              required
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setShowInviteModal(false); setInviteEmail(""); }}>
+                {t("Cancelar", "Cancel")}
+              </Button>
+              <Button onClick={handleSendInvitation} disabled={sendingInvite || !inviteEmail.trim()}>
+                <Send className="h-4 w-4" />
+                {sendingInvite ? "..." : t("Enviar invitación", "Send invitation")}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       </div>
     );
   }
@@ -597,6 +704,17 @@ export default function ConsultoraPage() {
           <Palette className="h-4 w-4 inline mr-1.5" />
           {t("Marca / White-label", "Branding / White-label")}
         </button>
+        <button
+          onClick={() => setTab("billing")}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+            tab === "billing"
+              ? "border-brand-500 text-brand-500"
+              : "border-transparent text-text-secondary hover:text-text"
+          }`}
+        >
+          <CreditCard className="h-4 w-4 inline mr-1.5" />
+          {t("Facturación", "Billing")}
+        </button>
       </div>
 
       {/* ── Clients Tab ── */}
@@ -640,6 +758,13 @@ export default function ConsultoraPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         <button
+                          onClick={(e) => { e.stopPropagation(); setInviteClientOrgId(client.clientOrgId); setShowInviteModal(true); }}
+                          className="p-1.5 rounded-lg hover:bg-blue-50 transition opacity-0 group-hover:opacity-100"
+                          title={t("Invitar usuario", "Invite user")}
+                        >
+                          <Mail className="h-4 w-4 text-blue-500" />
+                        </button>
+                        <button
                           onClick={(e) => { e.stopPropagation(); handleRemove(client.id); }}
                           className="p-1.5 rounded-lg hover:bg-red-50 transition opacity-0 group-hover:opacity-100"
                           title={t("Eliminar", "Remove")}
@@ -673,12 +798,51 @@ export default function ConsultoraPage() {
                 onChange={(e) => setBranding(prev => ({ ...prev, brandName: e.target.value }))}
                 placeholder={t("Tu marca", "Your brand")}
               />
-              <Input
-                label={t("URL del logo", "Logo URL")}
-                value={branding.logoUrl}
-                onChange={(e) => setBranding(prev => ({ ...prev, logoUrl: e.target.value }))}
-                placeholder="https://tu-empresa.com/logo.png"
-              />
+              <div>
+                <label className="block text-sm font-medium text-text mb-1.5">
+                  {t("Logo de marca", "Brand logo")}
+                </label>
+                <div className="flex items-center gap-3">
+                  {branding.logoUrl ? (
+                    <div className="relative h-12 w-auto rounded-lg border border-border p-1.5 bg-surface">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={branding.logoUrl} alt="Logo" className="h-full w-auto object-contain" />
+                    </div>
+                  ) : (
+                    <div className="h-12 w-12 rounded-lg border border-dashed border-border flex items-center justify-center bg-surface">
+                      <Upload className="h-5 w-5 text-text-muted" />
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-1">
+                    <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-border hover:bg-surface-tertiary transition">
+                      <Upload className="h-4 w-4" />
+                      {uploadingLogo ? t("Subiendo...", "Uploading...") : t("Subir logo", "Upload logo")}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                        className="hidden"
+                        disabled={uploadingLogo}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleLogoUpload(file);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                    <p className="text-xs text-text-muted">PNG, JPG, SVG o WebP · {t("Máx. 2 MB", "Max 2 MB")}</p>
+                  </div>
+                  {branding.logoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setBranding(prev => ({ ...prev, logoUrl: "" }))}
+                      className="p-1.5 rounded-lg hover:bg-red-50 transition text-red-500"
+                      title={t("Eliminar logo", "Remove logo")}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-text mb-1.5">
@@ -774,6 +938,108 @@ export default function ConsultoraPage() {
         </div>
       )}
 
+      {/* ── Billing Tab ── */}
+      {tab === "billing" && (
+        <div className="max-w-2xl space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-brand-500" />
+                {t("Resumen de facturación", "Billing Summary")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {billing ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="rounded-lg border border-border p-4">
+                      <p className="text-xs text-text-muted uppercase tracking-wider mb-1">
+                        {t("Plan base", "Base plan")}
+                      </p>
+                      <p className="text-2xl font-bold text-text">
+                        {billing.basePriceMonthly}€<span className="text-sm font-normal text-text-muted">/{t("mes", "mo")}</span>
+                      </p>
+                      <p className="text-xs text-text-muted mt-1">
+                        Plan Consultora {billing.isAnnual ? `(${t("anual", "annual")})` : `(${t("mensual", "monthly")})`}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border p-4">
+                      <p className="text-xs text-text-muted uppercase tracking-wider mb-1">
+                        {t("Por cliente", "Per client")}
+                      </p>
+                      <p className="text-2xl font-bold text-text">
+                        {billing.clientPriceMonthly}€<span className="text-sm font-normal text-text-muted">/{t("mes", "mo")}</span>
+                      </p>
+                      <p className="text-xs text-text-muted mt-1">
+                        × {billing.clientCount} {t("clientes activos", "active clients")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-brand-50 border border-brand-200 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-text">
+                          {t("Total mensual estimado", "Estimated monthly total")}
+                        </p>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          {billing.basePriceMonthly}€ + ({billing.clientCount} × {billing.clientPriceMonthly}€)
+                        </p>
+                      </div>
+                      <p className="text-3xl font-bold text-brand-600">
+                        {billing.totalMonthly}€
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-text-muted">
+                    {t(
+                      "La facturación por cliente se ajusta automáticamente al añadir o eliminar clientes. Los cambios se prorratean en tu siguiente factura.",
+                      "Per-client billing adjusts automatically when you add or remove clients. Changes are prorated on your next invoice."
+                    )}
+                  </p>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-sm text-text-muted">
+                    {t(
+                      "Información de facturación no disponible. Verifica tu suscripción en Configuración.",
+                      "Billing information unavailable. Check your subscription in Settings."
+                    )}
+                  </p>
+                  <Button variant="outline" className="mt-3" onClick={() => window.location.href = "/dashboard/configuracion?tab=plan"}>
+                    {t("Ir a configuración", "Go to settings")}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Pricing model explanation */}
+          <Card>
+            <CardContent className="pt-5">
+              <h3 className="text-sm font-medium text-text mb-3">{t("Modelo de precios", "Pricing model")}</h3>
+              <div className="space-y-2 text-sm text-text-secondary">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span>{t("349€/mes — Acceso completo a la plataforma, sistemas y usuarios ilimitados", "349€/mo — Full platform access, unlimited systems and users")}</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span>{t("25€/mes por cada cliente gestionado activo", "25€/mo per active managed client")}</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span>{t("Cada cliente puede autogestionar su compliance o ser gestionado por ti", "Each client can self-manage their compliance or be managed by you")}</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span>{t("Descuento del 20% en plan anual", "20% discount on yearly plan")}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Add Client Modal */}
       <Modal
         open={showAddModal}
@@ -826,6 +1092,47 @@ export default function ConsultoraPage() {
             </Button>
             <Button onClick={handleAdd} disabled={adding || !newClient.name.trim()}>
               {adding ? "..." : t("Crear cliente", "Create client")}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Invite Client User Modal (main view) */}
+      <Modal
+        open={showInviteModal && !selectedClient}
+        onClose={() => { setShowInviteModal(false); setInviteEmail(""); setInviteClientOrgId(""); }}
+        title={t("Invitar usuario", "Invite user")}
+        description={t(
+          "Envía una invitación para que el cliente acceda a su propio dashboard.",
+          "Send an invitation so the client can access their own dashboard."
+        )}
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+            <p className="text-xs text-blue-700">
+              <Mail className="h-3.5 w-3.5 inline mr-1" />
+              {t(
+                "El usuario podrá clasificar sus sistemas IA, generar documentos obligatorios y monitorizar el compliance desde su propio dashboard.",
+                "The user will be able to classify AI systems, generate mandatory documents and monitor compliance from their own dashboard."
+              )}
+            </p>
+          </div>
+          <Input
+            label="Email"
+            type="email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            placeholder="cliente@empresa.com"
+            required
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => { setShowInviteModal(false); setInviteEmail(""); setInviteClientOrgId(""); }}>
+              {t("Cancelar", "Cancel")}
+            </Button>
+            <Button onClick={handleSendInvitation} disabled={sendingInvite || !inviteEmail.trim()}>
+              <Send className="h-4 w-4" />
+              {sendingInvite ? "..." : t("Enviar invitación", "Send invitation")}
             </Button>
           </div>
         </div>

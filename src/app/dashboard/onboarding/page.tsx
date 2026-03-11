@@ -44,6 +44,7 @@ export default function OnboardingPage() {
   const [selectedSystem, setSelectedSystem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [isDark, setIsDark] = useState(false);
+  const [isConsultora, setIsConsultora] = useState(false);
 
   useEffect(() => {
     const checkTheme = () => {
@@ -58,14 +59,35 @@ export default function OnboardingPage() {
     return () => observer.disconnect();
   }, []);
 
+  // Detect if org is consultora plan
+  useEffect(() => {
+    async function checkPlan() {
+      try {
+        const res = await fetch("/api/onboarding/plan");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.plan === "consultora") setIsConsultora(true);
+        }
+      } catch {}
+    }
+    checkPlan();
+  }, []);
+
   const { locale } = useLocale();
   const i = (key: string, r?: Record<string, string | number>) => td(locale, key, r);
 
-  const steps = [
-    { id: 1, title: i("onb.step1"), icon: Building2 },
-    { id: 2, title: i("onb.step2"), icon: Cpu },
-    { id: 3, title: i("onb.step3"), icon: CheckCircle2 },
-  ];
+  const steps = isConsultora
+    ? [
+        { id: 1, title: i("onb.step1"), icon: Building2 },
+        { id: 2, title: i("onb.step3"), icon: CheckCircle2 },
+      ]
+    : [
+        { id: 1, title: i("onb.step1"), icon: Building2 },
+        { id: 2, title: i("onb.step2"), icon: Cpu },
+        { id: 3, title: i("onb.step3"), icon: CheckCircle2 },
+      ];
+
+  const totalSteps = isConsultora ? 2 : 3;
 
   const sectors = SECTOR_VALUES.map((v) => ({ value: v, label: i(`onb.sector.${v}`) }));
   const sizes = SIZE_VALUES.map((v) => ({
@@ -95,12 +117,12 @@ export default function OnboardingPage() {
       });
       if (!res.ok) throw new Error("Failed to save");
       router.refresh();
-      router.push("/dashboard");
+      router.push(isConsultora ? "/dashboard/consultora" : "/dashboard");
     } catch (err) {
       console.error(err);
       // Navigate anyway
       router.refresh();
-      router.push("/dashboard");
+      router.push(isConsultora ? "/dashboard/consultora" : "/dashboard");
     } finally {
       setSaving(false);
     }
@@ -130,7 +152,7 @@ export default function OnboardingPage() {
                 });
               } catch {}
               router.refresh();
-              router.push("/dashboard");
+              router.push(isConsultora ? "/dashboard/consultora" : "/dashboard");
             }}
             className="text-sm text-text-muted hover:text-text transition"
           >
@@ -254,7 +276,7 @@ export default function OnboardingPage() {
 
               <div className="flex justify-end">
                 <button
-                  onClick={() => setCurrentStep(2)}
+                  onClick={() => setCurrentStep(isConsultora ? 2 : 2)}
                   className="flex items-center gap-2 rounded-lg bg-brand-500 px-6 py-3 text-sm font-medium text-white hover:bg-brand-600 transition shadow-lg shadow-brand-500/20"
                 >
                   {i("onb.next")}
@@ -264,8 +286,8 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* Step 2: First AI System */}
-          {currentStep === 2 && (
+          {/* Step 2: First AI System (skip for consultora) */}
+          {currentStep === 2 && !isConsultora && (
             <div className="space-y-8">
               <div className="text-center">
                 <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-brand-500/10 border border-brand-500/20 mb-4">
@@ -333,8 +355,8 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* Step 3: Complete */}
-          {currentStep === 3 && (
+          {/* Step 3: Complete (step 3 for normal, step 2 for consultora) */}
+          {((currentStep === 3 && !isConsultora) || (currentStep === 2 && isConsultora)) && (
             <div className="space-y-8 text-center">
               <div>
                 <div className="inline-flex items-center justify-center h-20 w-20 rounded-2xl bg-green-500/10 border border-green-500/20 mb-4">
@@ -342,27 +364,52 @@ export default function OnboardingPage() {
                 </div>
                 <h1 className="text-2xl font-bold text-text">{i("onb.step3Title")}</h1>
                 <p className="mt-2 text-text-secondary max-w-md mx-auto">
-                  {i("onb.step3Desc")}
+                  {isConsultora
+                    ? (locale === "es"
+                      ? "Tu cuenta de consultora está lista. Accede a tu panel para gestionar clientes, marca y facturación."
+                      : "Your consultancy account is ready. Access your panel to manage clients, branding, and billing.")
+                    : i("onb.step3Desc")
+                  }
                 </p>
               </div>
 
-              <div className="grid sm:grid-cols-3 gap-4 max-w-lg mx-auto">
-                <div className="rounded-xl border border-border bg-surface-secondary p-4">
-                  <Cpu className="h-6 w-6 text-brand-500 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-text">{i("onb.action1")}</p>
-                  <p className="text-xs text-text-muted mt-1">{i("onb.action1Desc")}</p>
+              {isConsultora ? (
+                <div className="grid sm:grid-cols-3 gap-4 max-w-lg mx-auto">
+                  <div className="rounded-xl border border-border bg-surface-secondary p-4">
+                    <Users className="h-6 w-6 text-brand-500 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-text">{locale === "es" ? "Gestionar clientes" : "Manage clients"}</p>
+                    <p className="text-xs text-text-muted mt-1">{locale === "es" ? "Crea organizaciones para tus clientes" : "Create organisations for your clients"}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-surface-secondary p-4">
+                    <Building2 className="h-6 w-6 text-brand-500 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-text">{locale === "es" ? "Tu marca" : "Your brand"}</p>
+                    <p className="text-xs text-text-muted mt-1">{locale === "es" ? "Personaliza logo y colores" : "Customise logo and colors"}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-surface-secondary p-4">
+                    <Shield className="h-6 w-6 text-brand-500 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-text">{locale === "es" ? "Compliance" : "Compliance"}</p>
+                    <p className="text-xs text-text-muted mt-1">{locale === "es" ? "Sistemas, documentos y checklist" : "Systems, documents and checklist"}</p>
+                  </div>
                 </div>
-                <div className="rounded-xl border border-border bg-surface-secondary p-4">
-                  <Shield className="h-6 w-6 text-brand-500 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-text">{i("onb.action2")}</p>
-                  <p className="text-xs text-text-muted mt-1">{i("onb.action2Desc")}</p>
+              ) : (
+                <div className="grid sm:grid-cols-3 gap-4 max-w-lg mx-auto">
+                  <div className="rounded-xl border border-border bg-surface-secondary p-4">
+                    <Cpu className="h-6 w-6 text-brand-500 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-text">{i("onb.action1")}</p>
+                    <p className="text-xs text-text-muted mt-1">{i("onb.action1Desc")}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-surface-secondary p-4">
+                    <Shield className="h-6 w-6 text-brand-500 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-text">{i("onb.action2")}</p>
+                    <p className="text-xs text-text-muted mt-1">{i("onb.action2Desc")}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-surface-secondary p-4">
+                    <CheckCircle2 className="h-6 w-6 text-brand-500 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-text">{i("onb.action3")}</p>
+                    <p className="text-xs text-text-muted mt-1">{i("onb.action3Desc")}</p>
+                  </div>
                 </div>
-                <div className="rounded-xl border border-border bg-surface-secondary p-4">
-                  <CheckCircle2 className="h-6 w-6 text-brand-500 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-text">{i("onb.action3")}</p>
-                  <p className="text-xs text-text-muted mt-1">{i("onb.action3Desc")}</p>
-                </div>
-              </div>
+              )}
 
               <div className="flex flex-col items-center gap-3">
                 <button
@@ -370,7 +417,12 @@ export default function OnboardingPage() {
                   disabled={saving}
                   className="flex items-center gap-2 rounded-lg bg-brand-500 px-8 py-3 text-sm font-semibold text-white hover:bg-brand-600 transition shadow-lg shadow-brand-500/20 disabled:opacity-50"
                 >
-                  {saving ? i("onb.saving") : i("onb.goToDashboard")}
+                  {saving
+                    ? i("onb.saving")
+                    : isConsultora
+                      ? (locale === "es" ? "Ir al panel de consultora" : "Go to consultancy panel")
+                      : i("onb.goToDashboard")
+                  }
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </div>

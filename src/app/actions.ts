@@ -15,6 +15,7 @@ import {
   getDocumentTemplates,
   type DocumentTemplateType,
 } from "@/lib/documents/generators";
+import { syncConsultoraClientBilling, getConsultoraBillingSummary } from "@/lib/stripe/consultora-billing";
 
 // Bilingual helper for server actions (no React context available)
 function msg(locale: string, es: string, en: string) { return locale === "en" ? en : es; }
@@ -1656,14 +1657,15 @@ export async function addConsultoraClient(input: {
     const parsed = createClientSchema.parse(input);
 
     // Create a new organization for the client
+    // Unlimited systems/users — covered by the consultora subscription (25€/client/month)
     const [newOrg] = await db.insert(organizations).values({
       name: parsed.name,
       sector: parsed.sector || null,
       size: parsed.size,
       cifNif: parsed.cifNif || null,
-      plan: "free",
-      maxAiSystems: 50,
-      maxUsers: 10,
+      plan: "business",  // Functional plan level (no Stripe sub — billing is on the consultora)
+      maxAiSystems: -1,  // Unlimited
+      maxUsers: -1,      // Unlimited
     }).returning();
 
     // Link it to the consultora
@@ -1671,6 +1673,13 @@ export async function addConsultoraClient(input: {
       consultoraOrgId: user.organizationId,
       clientOrgId: newOrg.id,
     });
+
+    // Sync per-client billing with Stripe (25€/client/month)
+    const billingResult = await syncConsultoraClientBilling(user.organizationId);
+    if (!billingResult.success) {
+      console.error("[addConsultoraClient] Billing sync warning:", billingResult.error);
+      // Don't fail the operation — the client is created, billing can be retried
+    }
 
     await logAction(user.id, user.organizationId, "consultora_client_added", "organization", newOrg.id);
 
@@ -1693,6 +1702,12 @@ export async function removeConsultoraClient(linkId: string) {
         eq(consultoraClients.consultoraOrgId, user.organizationId)
       )
     );
+
+    // Sync per-client billing with Stripe (decrease quantity)
+    const billingResult = await syncConsultoraClientBilling(user.organizationId);
+    if (!billingResult.success) {
+      console.error("[removeConsultoraClient] Billing sync warning:", billingResult.error);
+    }
 
     await logAction(user.id, user.organizationId, "consultora_client_removed", "organization", linkId);
 
@@ -2004,6 +2019,57 @@ export async function consultoraGenerateDocument(
   }
 }
 
+/**
+ * Get applicable branding for the current user.
+ * - If user's org IS a consultora → return their own whitelabel config (null if not set)
+ * - If user's org IS a client of a consultora → return the consultora's whitelabel config
+ * - Otherwise → null (show default Audlex branding)
+ *
+ * This is called from the dashboard layout to apply branding everywhere.
+ */
+export async function getApplicableBranding(): Promise<{
+  brandName: string;
+  logoUrl: string | null;
+  primaryColor: string;
+  secondaryColor: string;
+  footerText: string | null;
+} | null> {
+  try {
+    const user = await getCurrentUser();
+
+    // 1. Check if this org is a consultora's client
+    const [clientLink] = await db
+      .select({ consultoraOrgId: consultoraClients.consultoraOrgId })
+      .from(consultoraClients)
+      .where(eq(consultoraClients.clientOrgId, user.organizationId))
+      .limit(1);
+
+    if (clientLink) {
+      // This is a client org → get the consultora's branding
+      const [config] = await db
+        .select()
+        .from(whitelabelConfig)
+        .where(eq(whitelabelConfig.organizationId, clientLink.consultoraOrgId))
+        .limit(1);
+
+      if (config) {
+        return {
+          brandName: config.brandName,
+          logoUrl: config.logoUrl,
+          primaryColor: config.primaryColor || "#2563EB",
+          secondaryColor: config.secondaryColor || "#1E40AF",
+          footerText: config.footerText,
+        };
+      }
+    }
+
+    // 2. Not a consultora client → return null (default Audlex branding)
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getWhitelabelConfig() {
   const user = await getCurrentUser();
   const [org] = await db.select().from(organizations).where(eq(organizations.id, user.organizationId)).limit(1);
@@ -2062,6 +2128,175 @@ export async function saveWhitelabelConfig(input: {
     await logAction(user.id, user.organizationId, "whitelabel_updated", "organization", user.organizationId);
 
     revalidatePath("/dashboard/consultora");
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
+  }
+}
+
+// ============================================================
+// CONSULTORA BILLING SUMMARY
+// ============================================================
+
+export async function getConsultoraBillingInfo() {
+  try {
+    const user = await getCurrentUser();
+    const [org] = await db.select().from(organizations).where(eq(organizations.id, user.organizationId)).limit(1);
+    if (!org || org.plan !== "consultora") {
+      return null;
+    }
+    return getConsultoraBillingSummary(user.organizationId);
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================
+// CLIENT INVITATION SYSTEM
+// ============================================================
+
+const invitationSchema = z.object({
+  clientOrgId: z.string().uuid(),
+  email: z.string().email().max(255),
+});
+
+export async function sendClientInvitation(input: { clientOrgId: string; email: string }) {
+  try {
+    const user = await getCurrentUser();
+    assertPermission(user.role as UserRole, "org.update");
+
+    const [org] = await db.select().from(organizations).where(eq(organizations.id, user.organizationId)).limit(1);
+    if (!org || org.plan !== "consultora") {
+      return { success: false, error: "Plan Consultora requerido" };
+    }
+
+    const parsed = invitationSchema.parse(input);
+
+    // Verify consultora-client relationship
+    const [link] = await db.select().from(consultoraClients).where(
+      and(
+        eq(consultoraClients.consultoraOrgId, user.organizationId),
+        eq(consultoraClients.clientOrgId, parsed.clientOrgId)
+      )
+    ).limit(1);
+
+    if (!link) {
+      return { success: false, error: "Cliente no encontrado / Client not found" };
+    }
+
+    // Get client org name
+    const [clientOrg] = await db.select().from(organizations).where(eq(organizations.id, parsed.clientOrgId)).limit(1);
+    if (!clientOrg) {
+      return { success: false, error: "Organización no encontrada" };
+    }
+
+    // Generate a secure invitation token
+    const crypto = await import("crypto");
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    // Store invitation in audit log
+    await logAction(
+      user.id,
+      user.organizationId,
+      "client_invitation_sent",
+      "organization",
+      parsed.clientOrgId,
+      { email: parsed.email, token, expiresAt: expiresAt.toISOString(), clientOrgId: parsed.clientOrgId }
+    );
+
+    // Build invitation URL
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.audlex.com";
+    const invitationUrl = `${appUrl}/auth/invitation?token=${token}&email=${encodeURIComponent(parsed.email)}&org=${parsed.clientOrgId}`;
+
+    // Send the invitation email
+    try {
+      const { sendClientInvitationEmail } = await import("@/lib/email");
+      await sendClientInvitationEmail({
+        to: parsed.email,
+        clientOrgName: clientOrg.name,
+        invitationUrl,
+        locale: "es",
+      });
+    } catch (emailErr) {
+      console.error("[sendClientInvitation] Email send failed:", emailErr);
+    }
+
+    revalidatePath("/dashboard/consultora");
+    return { success: true, invitationUrl };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Accept a client invitation and join the org.
+ * Called after the invited user registers or logs in.
+ */
+export async function acceptClientInvitation(token: string, clientOrgId: string) {
+  try {
+    const supabase = await createSupabaseServer();
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
+      return { success: false, error: "No autenticado / Not authenticated" };
+    }
+
+    // Find the invitation in audit log
+    const invitations = await db
+      .select()
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.action, "client_invitation_sent"),
+          eq(auditLog.entityId, clientOrgId)
+        )
+      )
+      .orderBy(desc(auditLog.createdAt))
+      .limit(10);
+
+    const invitation = invitations.find((inv) => {
+      const changes = inv.changes as Record<string, string> | null;
+      return changes?.token === token && changes?.clientOrgId === clientOrgId;
+    });
+
+    if (!invitation) {
+      return { success: false, error: "Invitación no encontrada o expirada / Invitation not found or expired" };
+    }
+
+    const changes = invitation.changes as Record<string, string>;
+    const expiresAt = new Date(changes.expiresAt);
+    if (expiresAt < new Date()) {
+      return { success: false, error: "Invitación expirada / Invitation expired" };
+    }
+
+    // Check if user already exists in DB
+    const [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.authProviderId, authUser.id))
+      .limit(1);
+
+    if (existingUser) {
+      // User already exists — update their org to the client org
+      await db.update(users).set({
+        organizationId: clientOrgId,
+        updatedAt: new Date(),
+      }).where(eq(users.id, existingUser.id));
+    } else {
+      // Create user linked to client org
+      await db.insert(users).values({
+        organizationId: clientOrgId,
+        email: authUser.email || "",
+        name: authUser.user_metadata?.name || authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "Usuario",
+        role: "owner",
+        authProviderId: authUser.id,
+        avatarUrl: authUser.user_metadata?.avatar_url || undefined,
+        lastLoginAt: new Date(),
+      });
+    }
+
     return { success: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

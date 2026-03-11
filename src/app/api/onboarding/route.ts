@@ -88,8 +88,14 @@ export async function POST(req: NextRequest) {
         .where(eq(organizations.id, dbUser.organizationId));
     }
 
-    // Create the AI system if one was selected during onboarding
-    if (selectedSystem && SYSTEM_DEFAULTS[selectedSystem]) {
+    // Create the AI system if one was selected during onboarding (skip for consultora — they manage client systems)
+    const [currentOrg] = await db
+      .select({ plan: organizations.plan })
+      .from(organizations)
+      .where(eq(organizations.id, dbUser.organizationId))
+      .limit(1);
+
+    if (selectedSystem && SYSTEM_DEFAULTS[selectedSystem] && currentOrg?.plan !== "consultora") {
       const defaults = SYSTEM_DEFAULTS[selectedSystem];
       // Check if a system with this category already exists for the org
       const existing = await db

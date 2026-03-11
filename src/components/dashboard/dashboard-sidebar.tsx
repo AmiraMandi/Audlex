@@ -21,6 +21,14 @@ import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { useLocale } from "@/hooks/use-locale";
 import { td } from "@/lib/i18n/dashboard-translations";
 
+interface Branding {
+  brandName: string;
+  logoUrl: string | null;
+  primaryColor: string;
+  secondaryColor: string;
+  footerText: string | null;
+}
+
 const navItems = [
   { href: "/dashboard", labelKey: "sidebar.dashboard", icon: LayoutDashboard },
   { href: "/dashboard/inventario", labelKey: "sidebar.inventory", icon: Cpu },
@@ -38,7 +46,7 @@ function daysUntil() {
   return Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-export function DashboardSidebar({ plan }: { plan: string }) {
+export function DashboardSidebar({ plan, branding }: { plan: string; branding?: Branding | null }) {
   const { locale } = useLocale();
   const pathname = usePathname();
   const [isDark, setIsDark] = useState(false);
@@ -66,15 +74,38 @@ export function DashboardSidebar({ plan }: { plan: string }) {
     <aside className="hidden lg:flex w-64 flex-col border-r border-border bg-surface-secondary" aria-label={td(locale, "a11y.mainNav")}>
       {/* Logo */}
       <div className="flex items-center justify-center px-6 py-5 border-b border-border">
-        <div className="relative h-9 w-auto">
-          <Image
-            src={isDark ? "/logo-white.svg" : "/logo.svg"}
-            alt="Audlex Logo"
-            width={150}
-            height={36}
-            className="h-9 w-auto object-contain"
-          />
-        </div>
+        {branding?.logoUrl ? (
+          <div className="relative h-9 w-auto">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={branding.logoUrl}
+              alt={branding.brandName}
+              className="h-9 w-auto object-contain"
+            />
+          </div>
+        ) : branding?.brandName ? (
+          <div className="flex items-center gap-2">
+            <div
+              className="h-9 w-9 rounded-lg flex items-center justify-center text-white text-lg font-bold"
+              style={{ backgroundColor: branding.primaryColor }}
+            >
+              {branding.brandName[0]?.toUpperCase()}
+            </div>
+            <span className="text-lg font-semibold" style={{ color: branding.primaryColor }}>
+              {branding.brandName}
+            </span>
+          </div>
+        ) : (
+          <div className="relative h-9 w-auto">
+            <Image
+              src={isDark ? "/logo-white.svg" : "/logo.svg"}
+              alt="Audlex Logo"
+              width={150}
+              height={36}
+              className="h-9 w-auto object-contain"
+            />
+          </div>
+        )}
       </div>
 
       {/* Countdown */}
@@ -92,6 +123,7 @@ export function DashboardSidebar({ plan }: { plan: string }) {
       <nav className="flex-1 px-3 py-4 space-y-1" aria-label={td(locale, "a11y.mainNav")}>
         {items.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+          const activeColor = branding?.primaryColor || undefined;
           return (
             <Link
               key={item.href}
@@ -99,11 +131,15 @@ export function DashboardSidebar({ plan }: { plan: string }) {
               aria-current={isActive ? "page" : undefined}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition group ${
                 isActive
-                  ? "bg-brand-500/10 text-brand-400 font-medium"
-                  : "text-text-secondary hover:bg-brand-500/10 hover:text-brand-400"
+                  ? branding ? "font-medium" : "bg-brand-500/10 text-brand-400 font-medium"
+                  : branding ? "text-text-secondary hover:opacity-80" : "text-text-secondary hover:bg-brand-500/10 hover:text-brand-400"
               }`}
+              style={isActive && activeColor ? { backgroundColor: `${activeColor}15`, color: activeColor } : undefined}
             >
-              <item.icon className={`h-5 w-5 transition ${isActive ? "text-brand-500" : "text-text-muted group-hover:text-brand-500"}`} />
+              <item.icon
+                className={`h-5 w-5 transition ${isActive ? (branding ? "" : "text-brand-500") : "text-text-muted group-hover:text-brand-500"}`}
+                style={isActive && activeColor ? { color: activeColor } : undefined}
+              />
               {td(locale, item.labelKey)}
             </Link>
           );

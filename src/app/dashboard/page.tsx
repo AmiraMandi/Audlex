@@ -50,6 +50,32 @@ export default async function DashboardPage() {
     redirect("/dashboard/onboarding");
   }
 
+  // Consultora plan → redirect to consultora panel
+  try {
+    const supabase2 = await createSupabaseServer();
+    const { data: { user: authUser2 } } = await supabase2.auth.getUser();
+    if (authUser2) {
+      const [dbUser2] = await db
+        .select({ organizationId: users.organizationId })
+        .from(users)
+        .where(eq(users.authProviderId, authUser2.id))
+        .limit(1);
+      if (dbUser2) {
+        const [org2] = await db
+          .select({ plan: organizations.plan })
+          .from(organizations)
+          .where(eq(organizations.id, dbUser2.organizationId))
+          .limit(1);
+        if (org2?.plan === "consultora") {
+          redirect("/dashboard/consultora");
+        }
+      }
+    }
+  } catch (e: unknown) {
+    // redirect() throws a special error — rethrow it
+    if (e && typeof e === "object" && "digest" in e) throw e;
+  }
+
   let data = {
     totalSystems: 0,
     classifiedSystems: 0,

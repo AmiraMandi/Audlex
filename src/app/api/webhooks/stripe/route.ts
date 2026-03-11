@@ -30,6 +30,25 @@ function getPlanMapping(): Record<string, { plan: PlanType; maxSystems: number; 
   return mapping;
 }
 
+/**
+ * Find the base plan price from a subscription's items.
+ * Skips per-client add-on prices (STRIPE_PRICE_CONSULTORA_CLIENT*).
+ */
+function findBasePlanPrice(items: Stripe.SubscriptionItem[]): string | undefined {
+  const clientPriceIds = [
+    process.env.STRIPE_PRICE_CONSULTORA_CLIENT,
+    process.env.STRIPE_PRICE_CONSULTORA_CLIENT_ANNUAL,
+  ].filter(Boolean);
+
+  for (const item of items) {
+    if (!clientPriceIds.includes(item.price.id)) {
+      return item.price.id;
+    }
+  }
+  // Fallback: return first item
+  return items[0]?.price.id;
+}
+
 // Simple in-memory idempotency (for serverless, use a DB table in production at scale)
 const processedEvents = new Set<string>();
 const MAX_PROCESSED = 1000;
@@ -88,7 +107,7 @@ export async function POST(request: Request) {
 
         if (subscriptionId) {
           const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
-          const priceId = subscription.items.data[0]?.price.id;
+          const priceId = findBasePlanPrice(subscription.items.data);
           const planInfo = priceId ? getPlanMapping()[priceId] : null;
 
           console.log("[Stripe Webhook] priceId:", priceId, "planInfo:", planInfo);
@@ -122,7 +141,7 @@ export async function POST(request: Request) {
 
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
-        const priceId = subscription.items.data[0]?.price.id;
+        const priceId = findBasePlanPrice(subscription.items.data);
         const planInfo = priceId ? getPlanMapping()[priceId] : null;
 
         if (planInfo) {

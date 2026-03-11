@@ -71,6 +71,11 @@ export const PLANS = {
     priceAnnual: 3350, // 20% discount
     maxSystems: -1,
     maxUsers: -1,
+    // Per-client add-on: 25€/client/month (240€/client/year)
+    clientPriceIdMonthly: process.env.STRIPE_PRICE_CONSULTORA_CLIENT || "",
+    clientPriceIdAnnual: process.env.STRIPE_PRICE_CONSULTORA_CLIENT_ANNUAL || "",
+    clientPriceMonthly: 25,
+    clientPriceAnnual: 240,
     features: [
       "Multi-cliente: gestiona varias organizaciones",
       "Sistemas y usuarios ilimitados",
@@ -78,6 +83,7 @@ export const PLANS = {
       "Documentación con marca del cliente",
       "Informes por cliente",
       "Onboarding guiado",
+      "25€/mes por cliente gestionado",
     ],
   },
 } as const;
