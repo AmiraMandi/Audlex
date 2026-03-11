@@ -17,6 +17,10 @@ import {
   X,
   Activity,
   Building2,
+  Users,
+  Palette,
+  CreditCard,
+  HelpCircle,
 } from "lucide-react";
 import { useLocale } from "@/hooks/use-locale";
 import { td } from "@/lib/i18n/dashboard-translations";
@@ -37,6 +41,12 @@ const navItems = [
   { href: "/dashboard/checklist", labelKey: "sidebar.checklist", icon: CheckSquare },
   { href: "/dashboard/informes", labelKey: "sidebar.reports", icon: BarChart3 },
   { href: "/dashboard/audit-log", labelKey: "sidebar.auditLog", icon: Activity },
+  { href: "/dashboard/soporte", labelKey: "sidebar.support", icon: HelpCircle },
+];
+
+const consultoraNavItems = [
+  { href: "/dashboard/consultora", labelKey: "sidebar.consultora", icon: Building2 },
+  { href: "/dashboard/soporte", labelKey: "sidebar.support", icon: HelpCircle },
 ];
 
 interface MobileSidebarProps {
@@ -52,9 +62,7 @@ export function MobileSidebar({ userEmail, daysUntilDeadline, plan, branding }: 
   const pathname = usePathname();
   const { locale } = useLocale();
 
-  const items = plan === "consultora"
-    ? [...navItems, { href: "/dashboard/consultora", labelKey: "sidebar.consultora", icon: Building2 }]
-    : navItems;
+  const items = plan === "consultora" ? consultoraNavItems : navItems;
 
   useEffect(() => {
     const checkTheme = () => {

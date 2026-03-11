@@ -16,6 +16,9 @@ import {
   Activity,
   HelpCircle,
   Building2,
+  Users,
+  Palette,
+  CreditCard,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { useLocale } from "@/hooks/use-locale";
@@ -40,6 +43,11 @@ const navItems = [
   { href: "/dashboard/soporte", labelKey: "sidebar.support", icon: HelpCircle },
 ];
 
+const consultoraNavItems = [
+  { href: "/dashboard/consultora", labelKey: "sidebar.consultora", icon: Building2 },
+  { href: "/dashboard/soporte", labelKey: "sidebar.support", icon: HelpCircle },
+];
+
 function daysUntil() {
   const deadline = new Date("2026-08-02");
   const now = new Date();
@@ -51,9 +59,7 @@ export function DashboardSidebar({ plan, branding }: { plan: string; branding?: 
   const pathname = usePathname();
   const [isDark, setIsDark] = useState(false);
 
-  const items = plan === "consultora"
-    ? [...navItems, { href: "/dashboard/consultora", labelKey: "sidebar.consultora", icon: Building2 }]
-    : navItems;
+  const items = plan === "consultora" ? consultoraNavItems : navItems;
 
   useEffect(() => {
     const checkTheme = () => {
