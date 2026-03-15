@@ -1,13 +1,29 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseServer, createSupabaseAdmin } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { users, organizations } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
+const BUCKET_NAME = "whitelabel-logos";
 const MAX_SIZE = 2 * 1024 * 1024; // 2 MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/webp"];
+
+/** Ensure the storage bucket exists (uses admin/service-role client) */
+async function ensureBucket() {
+  const admin = createSupabaseAdmin();
+  const { data: buckets } = await admin.storage.listBuckets();
+  const exists = buckets?.some((b) => b.name === BUCKET_NAME);
+  if (!exists) {
+    const { error } = await admin.storage.createBucket(BUCKET_NAME, {
+      public: true,
+      fileSizeLimit: MAX_SIZE,
+      allowedMimeTypes: ALLOWED_TYPES,
+    });
+    if (error) console.error("[ensureBucket]", error);
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -44,12 +60,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "El archivo no puede superar 2 MB" }, { status: 400 });
     }
 
+    // Auto-create bucket if it doesn't exist
+    await ensureBucket();
+
     const ext = file.name.split(".").pop() || "png";
     const fileName = `${dbUser.organizationId}/logo-${Date.now()}.${ext}`;
 
-    // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("whitelabel-logos")
+    // Upload using admin client (bypasses RLS)
+    const admin = createSupabaseAdmin();
+    const { data: uploadData, error: uploadError } = await admin.storage
+      .from(BUCKET_NAME)
       .upload(fileName, file, {
         contentType: file.type,
         upsert: true,
@@ -57,12 +77,12 @@ export async function POST(request: Request) {
 
     if (uploadError) {
       console.error("[Logo Upload] Storage error:", uploadError);
-      return NextResponse.json({ error: "Error al subir el archivo. Verifica que el bucket 'whitelabel-logos' existe." }, { status: 500 });
+      return NextResponse.json({ error: "Error al subir el archivo." }, { status: 500 });
     }
 
     // Get public URL
-    const { data: urlData } = supabase.storage
-      .from("whitelabel-logos")
+    const { data: urlData } = admin.storage
+      .from(BUCKET_NAME)
       .getPublicUrl(uploadData.path);
 
     return NextResponse.json({ url: urlData.publicUrl });
