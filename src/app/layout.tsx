@@ -69,7 +69,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className={inter.variable} suppressHydrationWarning>
-      <head>
+      <head suppressHydrationWarning>
         {/* Prevent flash: apply saved theme + locale ASAP */}
         <script
           dangerouslySetInnerHTML={{
@@ -110,7 +110,7 @@ export default function RootLayout({
             ]
           }) }}
         />      </head>
-      <body className="min-h-screen font-sans">
+      <body className="min-h-screen font-sans" suppressHydrationWarning>
         <LocaleProvider>
           {children}
           <CookieBanner />
