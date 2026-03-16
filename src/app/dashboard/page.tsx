@@ -1,11 +1,11 @@
 import { getDashboardStats, getDashboardCharts, getRecentActivity } from "@/app/actions";
 import { DashboardContent } from "./dashboard-content";
 import type { ActivityLogEntry } from "@/types";
-import { redirect } from "next/navigation";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { organizations, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { ClientRedirect } from "@/components/ui/client-redirect";
 
 export const metadata = {
   title: "Dashboard",
@@ -53,12 +53,12 @@ export default async function DashboardPage() {
     // User not authenticated — layout will handle redirect
   }
 
-  // Redirects outside try/catch (redirect() throws internally)
+  // Client-side redirects (avoids React hydration error #310 with server redirect during streaming)
   if (shouldRedirectToOnboarding) {
-    redirect("/dashboard/onboarding");
+    return <ClientRedirect to="/dashboard/onboarding" />;
   }
   if (shouldRedirectToConsultora) {
-    redirect("/dashboard/consultora");
+    return <ClientRedirect to="/dashboard/consultora" />;
   }
 
   let data = {
