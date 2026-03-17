@@ -21,6 +21,7 @@ import {
   Briefcase,
   GraduationCap,
 } from "lucide-react";
+import { useScrollReveal, revealClass } from "@/hooks/use-scroll-reveal";
 import type { Locale } from "@/lib/i18n/translations";
 
 export function SecuritySection({
@@ -30,10 +31,11 @@ export function SecuritySection({
   locale: Locale;
   i: (key: string) => string;
 }) {
+  const [ref, visible] = useScrollReveal();
   return (
-    <section className="py-24 border-y border-border bg-surface-secondary relative overflow-hidden">
+    <section ref={ref} className="py-24 border-y border-border bg-surface-secondary relative overflow-hidden">
       <div className="mx-auto max-w-7xl px-6 relative">
-        <div className="text-center mb-16">
+        <div className={`text-center mb-16 ${revealClass(visible, "up")}`}>
           <div className="inline-flex items-center gap-2 rounded-full border border-green-500/30 bg-gradient-to-r from-green-500/10 to-emerald-500/10 px-4 py-1.5 text-sm font-medium text-green-600 dark:text-green-400 mb-6">
             <ShieldCheck className="h-4 w-4" />
             {i("security.badge")}
@@ -76,10 +78,15 @@ export function SecuritySection({
               iconColor: "text-amber-500",
               borderColor: "border-amber-500/20",
             },
-          ].map((item) => (
+          ].map((item, idx) => (
             <div
               key={item.titleKey}
-              className={`group relative p-8 rounded-2xl border ${item.borderColor} bg-surface transition-all duration-300`}
+              className={`group relative p-8 rounded-2xl border ${item.borderColor} bg-surface transition-all duration-700 ease-out hover:scale-[1.02] hover:shadow-lg ${
+                visible
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-10"
+              }`}
+              style={{ transitionDelay: `${idx * 120 + 300}ms` }}
             >
               <div
                 className={`inline-flex rounded-2xl border ${item.borderColor} p-4 mb-6`}
@@ -107,9 +114,10 @@ export function ConsultorasSection({
   locale: Locale;
   i: (key: string) => string;
 }) {
+  const [ref, visible] = useScrollReveal();
   return (
-    <section id="consultoras" className="py-24">
-      <div className="mx-auto max-w-6xl px-6">
+    <section id="consultoras" className="py-24" ref={ref}>
+      <div className={`mx-auto max-w-6xl px-6 ${revealClass(visible, "up")}`}>
         <div className="rounded-2xl bg-gradient-to-br from-brand-600 to-brand-800 p-12 text-white relative overflow-hidden">
           <div className="relative grid md:grid-cols-2 gap-12 items-center">
             <div>
@@ -196,6 +204,7 @@ export function IndustrySection({
   locale: Locale;
   i: (key: string) => string;
 }) {
+  const [ref, visible] = useScrollReveal();
   const industries = [
     {
       icon: Landmark,
@@ -260,9 +269,11 @@ export function IndustrySection({
   ];
 
   return (
-    <section className="py-24 border-t border-border relative overflow-hidden">
+    <section ref={ref} className="py-24 border-t border-border relative overflow-hidden">
+      {/* Decorative orb */}
+      <div className="glow-orb absolute -top-20 -left-20 w-80 h-80 bg-brand-500/5 animate-float-slow" />
       <div className="mx-auto max-w-7xl px-6 relative">
-        <div className="text-center mb-16">
+        <div className={`text-center mb-16 ${revealClass(visible, "up")}`}>
           <div className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-gradient-to-r from-brand-500/10 to-purple-500/10 px-4 py-1.5 text-sm font-medium text-brand-600 dark:text-brand-400 mb-6">
             <Building2 className="h-4 w-4" />
             {i("industry.badge")}
@@ -276,7 +287,7 @@ export function IndustrySection({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {industries.map((industry) => {
+          {industries.map((industry, idx) => {
             const badgeBg =
               industry.riskLevel === "high"
                 ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
@@ -287,7 +298,12 @@ export function IndustrySection({
             return (
               <div
                 key={industry.name}
-                className="group relative p-8 rounded-2xl border border-border/50 bg-surface transition-all duration-300"
+                className={`group relative p-8 rounded-2xl border border-border/50 bg-surface transition-all duration-700 ease-out hover:border-brand-500/30 hover:scale-[1.02] hover:shadow-lg ${
+                  visible
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-10"
+                }`}
+                style={{ transitionDelay: `${idx * 100 + 300}ms` }}
               >
                 <div className="inline-flex rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 p-4 mb-6">
                   <industry.icon className="h-8 w-8 text-white" />
@@ -322,6 +338,7 @@ export function FaqSection({
   i: (key: string) => string;
 }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [ref, visible] = useScrollReveal();
   const faqs = [
     { q: i("faq.q1"), a: i("faq.a1") },
     { q: i("faq.q2"), a: i("faq.a2") },
@@ -332,8 +349,8 @@ export function FaqSection({
   ];
 
   return (
-    <section id="faq" className="py-24 border-t border-border">
-      <div className="mx-auto max-w-3xl px-6">
+    <section id="faq" className="py-24 border-t border-border" ref={ref}>
+      <div className={`mx-auto max-w-3xl px-6 ${revealClass(visible, "up")}`}>
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 rounded-full border border-brand-500/20 bg-brand-500/10 px-3 py-1 text-xs font-medium text-brand-600 dark:text-brand-400 mb-4">
             <Sparkles className="h-3.5 w-3.5" />
@@ -396,10 +413,14 @@ export function CtaSection({
   i: (key: string, replacements?: Record<string, string | number>) => string;
   days: number;
 }) {
+  const [ref, visible] = useScrollReveal();
   return (
-    <section className="py-24 bg-surface-secondary relative overflow-hidden">
-      <div className="relative mx-auto max-w-3xl px-6 text-center">
-        <h2 className="text-3xl font-bold text-text sm:text-4xl">
+    <section ref={ref} className="py-24 bg-surface-secondary relative overflow-hidden">
+      {/* Decorative orbs */}
+      <div className="glow-orb absolute -top-20 left-1/4 w-72 h-72 bg-brand-500/10 animate-pulse-glow" />
+      <div className="glow-orb absolute -bottom-20 right-1/4 w-64 h-64 bg-purple-500/10 animate-float-reverse" />
+      <div className={`relative mx-auto max-w-3xl px-6 text-center ${revealClass(visible, "scale")}`}>
+        <h2 className="text-3xl font-bold text-text sm:text-4xl lg:text-5xl">
           {i("cta.title1", { days })}
           <br />
           <span className="gradient-text">{i("cta.title2")}</span>

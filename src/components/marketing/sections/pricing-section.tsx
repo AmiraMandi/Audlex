@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { PricingButton } from "@/components/marketing/pricing-button";
 import { PricingToggle } from "@/components/marketing/pricing-toggle";
+import { useScrollReveal, revealClass } from "@/hooks/use-scroll-reveal";
 import type { Locale } from "@/lib/i18n/translations";
 
 export default function PricingSection({
@@ -18,6 +19,7 @@ export default function PricingSection({
   i: (key: string, replacements?: Record<string, string | number>) => string;
 }) {
   const [isAnnual, setIsAnnual] = useState(false);
+  const [ref, visible] = useScrollReveal();
 
   const plans = [
     {
@@ -117,8 +119,8 @@ export default function PricingSection({
   ];
 
   return (
-    <section id="precios" className="py-24 bg-surface-secondary">
-      <div className="mx-auto max-w-6xl px-6">
+    <section id="precios" className="py-24 bg-surface-secondary" ref={ref}>
+      <div className={`mx-auto max-w-6xl px-6 ${revealClass(visible, "up")}`}>
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-text sm:text-4xl">
             {i("pricing.title")}
