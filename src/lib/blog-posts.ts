@@ -29,6 +29,14 @@ export const blogPosts: BlogPostMeta[] = [
     lastModified: "2025-06-08",
   },
   {
+    slug: "plataforma-comision-europea-ai-act",
+    titleKey: "blog.post4.title",
+    excerptKey: "blog.post4.excerpt",
+    categoryKey: "blog.post4.category",
+    readTime: "7 min",
+    lastModified: "2026-03-17",
+  },
+  {
     slug: "multas-ai-act-como-evitarlas",
     titleKey: "blog.post3.title",
     excerptKey: "blog.post3.excerpt",

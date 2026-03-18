@@ -37,6 +37,11 @@ const publicTranslations: Record<Locale, Record<string, string>> = {
     "blog.post3.excerpt":
       "Análisis detallado del régimen sancionador del EU AI Act: tipos de infracciones, cuantías, agravantes y atenuantes. Incluye un plan de acción en 5 pasos para blindar tu empresa.",
     "blog.post3.category": "Legal",
+    "blog.post4.title":
+      "La Comisión Europea lanza una plataforma centralizada para el cumplimiento del EU AI Act",
+    "blog.post4.excerpt":
+      "La CE presenta tres herramientas clave — Compliance Checker, National Resources Explorer y AI Act Explorer — para facilitar la comprensión y el cumplimiento del Reglamento de IA. Analizamos qué ofrecen y cómo complementan tu proceso de compliance.",
+    "blog.post4.category": "Actualidad",
 
     /* ── Blog article ──────────────────────────────────────── */
     "blog.backToBlog": "← Blog",
@@ -366,6 +371,11 @@ const publicTranslations: Record<Locale, Record<string, string>> = {
     "blog.post3.excerpt":
       "Detailed analysis of the EU AI Act penalty regime: types of infringements, amounts, aggravating and mitigating factors. Includes a 5-step action plan to protect your company.",
     "blog.post3.category": "Legal",
+    "blog.post4.title":
+      "European Commission launches centralized platform for EU AI Act compliance",
+    "blog.post4.excerpt":
+      "The EC introduces three key tools — Compliance Checker, National Resources Explorer and AI Act Explorer — to facilitate understanding and compliance with the AI Regulation. We analyze what they offer and how they complement your compliance process.",
+    "blog.post4.category": "News",
 
     /* ── Blog article ──────────────────────────────────────── */
     "blog.backToBlog": "← Blog",

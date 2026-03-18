@@ -37,6 +37,15 @@ const posts: BlogPost[] = [
     categoryColor: "bg-orange-500/10 text-orange-600 border-orange-500/20",
   },
   {
+    slug: "plataforma-comision-europea-ai-act",
+    titleKey: "blog.post4.title",
+    excerptKey: "blog.post4.excerpt",
+    date: "2026-03-17",
+    readTime: "7 min",
+    categoryKey: "blog.post4.category",
+    categoryColor: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  },
+  {
     slug: "multas-ai-act-como-evitarlas",
     titleKey: "blog.post3.title",
     excerptKey: "blog.post3.excerpt",
