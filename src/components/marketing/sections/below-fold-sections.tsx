@@ -549,6 +549,9 @@ export function FooterSection({
             <Link href="/sobre-nosotros" className="hover:text-text transition">
               {i("nav.about")}
             </Link>
+            <Link href="/ai-act-explorer" className="hover:text-text transition">
+              AI Act Explorer
+            </Link>
             <a href="/legal/privacidad" className="hover:text-text transition">
               {i("footer.privacy")}
             </a>

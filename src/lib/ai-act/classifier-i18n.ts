@@ -110,6 +110,18 @@ export const questionText: Record<string, Record<Locale, string>> = {
     es: "¿El sistema genera o manipula imágenes, audio o vídeo que parecen reales (deepfakes)?",
     en: "Does the system generate or manipulate images, audio, or video that appear real (deepfakes)?",
   },
+  is_gpai_model: {
+    es: "¿El sistema es o utiliza un modelo de IA de propósito general (GPAI), como GPT, LLaMA, Gemini, Claude u otro modelo fundacional?",
+    en: "Is the system or does it use a general-purpose AI (GPAI) model, such as GPT, LLaMA, Gemini, Claude, or another foundation model?",
+  },
+  gpai_systemic_risk: {
+    es: "¿El modelo GPAI utiliza más de 10²⁵ FLOPs de computación para su entrenamiento, o ha sido designado como de riesgo sistémico por la Comisión Europea?",
+    en: "Does the GPAI model use more than 10²⁵ FLOPs of computing power for training, or has it been designated as having systemic risk by the European Commission?",
+  },
+  gpai_open_source: {
+    es: "¿El modelo GPAI se distribuye bajo una licencia libre o de código abierto?",
+    en: "Is the GPAI model distributed under a free or open-source licence?",
+  },
 };
 
 // ============================================================
@@ -164,6 +176,18 @@ export const questionHelpText: Record<string, Record<Locale, string>> = {
   reversibility: {
     es: "Ejemplo: un chatbot que da información incorrecta es reversible. Un sistema que deniega un crédito automáticamente tiene consecuencias más difíciles de revertir.",
     en: "Example: a chatbot giving incorrect information is reversible. A system that automatically denies credit has consequences that are harder to reverse.",
+  },
+  is_gpai_model: {
+    es: "Modelos GPAI son modelos de IA entrenados con grandes cantidades de datos, capaces de realizar una amplia gama de tareas (generar texto, código, imágenes, etc.). Ejemplo: GPT-4, Gemini, Claude, LLaMA, Mistral.",
+    en: "GPAI models are AI models trained on large amounts of data, capable of performing a wide range of tasks (generating text, code, images, etc.). Example: GPT-4, Gemini, Claude, LLaMA, Mistral.",
+  },
+  gpai_systemic_risk: {
+    es: "Los modelos GPAI con >10²⁵ FLOPs se presumen de riesgo sistémico (Art. 51.2). Actualmente incluye modelos como GPT-4, Gemini Ultra. La Comisión también puede designar modelos con capacidades de alto impacto.",
+    en: "GPAI models with >10²⁵ FLOPs are presumed to have systemic risk (Art. 51.2). Currently includes models like GPT-4, Gemini Ultra. The Commission may also designate models with high-impact capabilities.",
+  },
+  gpai_open_source: {
+    es: "Los modelos GPAI open source tienen exenciones parciales de documentación (Art. 53.2), pero deben cumplir con derechos de autor y publicar el resumen de entrenamiento. Si tienen riesgo sistémico, NO aplican exenciones.",
+    en: "Open-source GPAI models have partial documentation exemptions (Art. 53.2), but must comply with copyright and publish the training summary. If they have systemic risk, exemptions do NOT apply.",
   },
 };
 
@@ -641,6 +665,141 @@ export const highRiskExplanation = {
   deadlineWarning: {
     es: "Fecha límite: 2 de agosto de 2026. Las multas por incumplimiento pueden alcanzar los 15 millones de euros o el 3% de la facturación anual global.",
     en: "Deadline: 2 August 2026. Fines for non-compliance can reach €15 million or 3% of annual global turnover.",
+  },
+};
+
+// ============================================================
+// GPAI — QUESTION TEXT
+// ============================================================
+
+// (GPAI questions are added to questionText, questionHelpText, etc. inline above — see entries below)
+
+// ============================================================
+// GPAI — RESULT TEXTS
+// ============================================================
+
+export const gpaiResultTexts = {
+  summary: {
+    es: "Modelo de IA de Propósito General (GPAI) — Obligaciones Art. 53",
+    en: "General Purpose AI (GPAI) Model — Art. 53 Obligations",
+  },
+  summarySystemic: {
+    es: "GPAI con Riesgo Sistémico — Obligaciones Art. 53 + Art. 55",
+    en: "GPAI with Systemic Risk — Art. 53 + Art. 55 Obligations",
+  },
+  detailedExplanation: {
+    es: "Este sistema utiliza o es un modelo de IA de propósito general (GPAI) según los Artículos 51-53 del EU AI Act. Los proveedores de modelos GPAI deben cumplir obligaciones específicas: documentación técnica del modelo, política de cumplimiento de derechos de autor, resumen del contenido de entrenamiento, y cooperación con proveedores downstream. Las obligaciones aplican a partir del 2 de agosto de 2025.",
+    en: "This system uses or is a general-purpose AI (GPAI) model under Articles 51-53 of the EU AI Act. Providers of GPAI models must comply with specific obligations: model technical documentation, copyright compliance policy, training content summary, and cooperation with downstream providers. Obligations apply from 2 August 2025.",
+  },
+  detailedExplanationSystemic: {
+    es: "Este sistema utiliza o es un modelo GPAI con riesgo sistémico según el Artículo 51.2 del EU AI Act (>10²⁵ FLOPs o designación por la Comisión). Además de las obligaciones generales de GPAI (Art. 53), debe cumplir las obligaciones reforzadas del Art. 55: evaluación del modelo con pruebas adversariales, mitigación de riesgos sistémicos, notificación de incidentes graves, y protección adecuada de ciberseguridad. Las multas por incumplimiento pueden alcanzar 15 millones de euros o el 3% de la facturación global.",
+    en: "This system uses or is a GPAI model with systemic risk under Article 51.2 of the EU AI Act (>10²⁵ FLOPs or Commission designation). In addition to general GPAI obligations (Art. 53), it must comply with reinforced Art. 55 obligations: model evaluation with adversarial testing, systemic risk mitigation, serious incident reporting, and adequate cybersecurity protection. Fines for non-compliance can reach €15 million or 3% of global turnover.",
+  },
+};
+
+// ============================================================
+// GPAI — OBLIGATION TEXTS
+// ============================================================
+
+export const gpaiObligationTexts: Record<string, ObligationI18n> = {
+  art53_technical_doc: {
+    title: { es: "Documentación Técnica del Modelo GPAI", en: "GPAI Model Technical Documentation" },
+    description: {
+      es: "Elaborar y mantener actualizada la documentación técnica del modelo, incluyendo su proceso de entrenamiento y pruebas, y ponerla a disposición de la Oficina de IA y autoridades nacionales.",
+      en: "Prepare and keep up to date the technical documentation of the model, including its training and testing process, and make it available to the AI Office and national authorities.",
+    },
+    deadline: { es: "2 de agosto de 2025", en: "2 August 2025" },
+  },
+  art53_copyright: {
+    title: { es: "Política de Cumplimiento de Derechos de Autor", en: "Copyright Compliance Policy" },
+    description: {
+      es: "Implementar una política de cumplimiento del derecho de autor de la UE, en particular para identificar y respetar las reservas de derechos expresadas por los titulares conforme al Art. 4.3 de la Directiva (UE) 2019/790.",
+      en: "Implement an EU copyright compliance policy, particularly to identify and respect rights reservations expressed by rights holders under Art. 4.3 of Directive (EU) 2019/790.",
+    },
+    deadline: { es: "2 de agosto de 2025", en: "2 August 2025" },
+  },
+  art53_training_content: {
+    title: { es: "Resumen del Contenido de Entrenamiento", en: "Training Content Summary" },
+    description: {
+      es: "Elaborar y publicar un resumen suficientemente detallado del contenido utilizado para el entrenamiento del modelo GPAI, según la plantilla proporcionada por la Oficina de IA.",
+      en: "Prepare and publish a sufficiently detailed summary of the content used for training the GPAI model, according to the template provided by the AI Office.",
+    },
+    deadline: { es: "2 de agosto de 2025", en: "2 August 2025" },
+  },
+  art53_downstream: {
+    title: { es: "Cooperación con Proveedores Downstream", en: "Downstream Provider Cooperation" },
+    description: {
+      es: "Proporcionar información y documentación suficiente a los proveedores downstream que integren el modelo GPAI en sus sistemas de IA, para que puedan cumplir con sus propias obligaciones.",
+      en: "Provide sufficient information and documentation to downstream providers integrating the GPAI model into their AI systems, so they can comply with their own obligations.",
+    },
+    deadline: { es: "2 de agosto de 2025", en: "2 August 2025" },
+  },
+  art55_model_evaluation: {
+    title: { es: "Evaluación del Modelo con Pruebas Adversariales", en: "Model Evaluation with Adversarial Testing" },
+    description: {
+      es: "Realizar evaluaciones estandarizadas del modelo, incluidas pruebas adversariales (red-teaming), para identificar y mitigar riesgos sistémicos.",
+      en: "Perform standardised model evaluations, including adversarial testing (red-teaming), to identify and mitigate systemic risks.",
+    },
+    deadline: { es: "2 de agosto de 2025", en: "2 August 2025" },
+  },
+  art55_risk_mitigation: {
+    title: { es: "Mitigación de Riesgos Sistémicos", en: "Systemic Risk Mitigation" },
+    description: {
+      es: "Evaluar y mitigar posibles riesgos sistémicos, incluyendo sus fuentes, que puedan derivarse del desarrollo, la comercialización o el uso del modelo.",
+      en: "Assess and mitigate possible systemic risks, including their sources, that may arise from the development, placing on the market, or use of the model.",
+    },
+    deadline: { es: "2 de agosto de 2025", en: "2 August 2025" },
+  },
+  art55_incident_reporting: {
+    title: { es: "Notificación de Incidentes Graves", en: "Serious Incident Reporting" },
+    description: {
+      es: "Hacer un seguimiento, documentar y notificar sin demora a la Oficina de IA y a las autoridades nacionales competentes los incidentes graves y las posibles medidas correctoras.",
+      en: "Track, document, and report without delay to the AI Office and relevant national competent authorities any serious incidents and possible corrective measures.",
+    },
+    deadline: { es: "2 de agosto de 2025", en: "2 August 2025" },
+  },
+  art55_cybersecurity: {
+    title: { es: "Protección de Ciberseguridad Adecuada", en: "Adequate Cybersecurity Protection" },
+    description: {
+      es: "Garantizar un nivel adecuado de protección de ciberseguridad para el modelo GPAI con riesgo sistémico y la infraestructura física del modelo.",
+      en: "Ensure an adequate level of cybersecurity protection for the GPAI model with systemic risk and the model's physical infrastructure.",
+    },
+    deadline: { es: "2 de agosto de 2025", en: "2 August 2025" },
+  },
+};
+
+// ============================================================
+// GPAI — RECOMMENDATIONS
+// ============================================================
+
+export const gpaiRecommendations = {
+  base: {
+    es: [
+      "GPAI: Prepara la documentación técnica del modelo según la plantilla de la Oficina de IA europea.",
+      "GPAI: Implementa una política de cumplimiento de derechos de autor para los datos de entrenamiento.",
+      "GPAI: Publica un resumen del contenido usado para entrenar el modelo.",
+    ],
+    en: [
+      "GPAI: Prepare the model technical documentation according to the EU AI Office template.",
+      "GPAI: Implement a copyright compliance policy for training data.",
+      "GPAI: Publish a summary of the content used to train the model.",
+    ],
+  },
+  systemic: {
+    es: [
+      "RIESGO SISTÉMICO: Realiza evaluaciones adversariales (red-teaming) del modelo antes de su despliegue.",
+      "RIESGO SISTÉMICO: Establece un protocolo de notificación de incidentes graves a la Oficina de IA.",
+      "RIESGO SISTÉMICO: Implementa medidas de ciberseguridad robustas para la infraestructura del modelo.",
+    ],
+    en: [
+      "SYSTEMIC RISK: Conduct adversarial evaluations (red-teaming) of the model before deployment.",
+      "SYSTEMIC RISK: Establish a serious incident reporting protocol to the AI Office.",
+      "SYSTEMIC RISK: Implement robust cybersecurity measures for the model infrastructure.",
+    ],
+  },
+  openSource: {
+    es: "GPAI OPEN SOURCE: Las obligaciones de documentación técnica tienen exenciones parciales para modelos de código abierto (Art. 53.2), pero las obligaciones de derechos de autor y resumen de entrenamiento se mantienen.",
+    en: "GPAI OPEN SOURCE: Technical documentation obligations have partial exemptions for open-source models (Art. 53.2), but copyright and training summary obligations are maintained.",
   },
 };
 

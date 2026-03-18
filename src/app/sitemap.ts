@@ -42,6 +42,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.9,
     },
+    {
+      url: `${BASE_URL}/ai-act-explorer`,
+      lastModified: new Date("2026-03-18"),
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
   ];
 
   // Blog posts (generated from shared config)

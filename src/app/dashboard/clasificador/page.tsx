@@ -156,6 +156,11 @@ function ClasificadorContent() {
         <div className={`rounded-2xl ${config.bg} ${config.border} border p-8 text-center`}>
           <RiskIcon className={`h-16 w-16 mx-auto mb-4 ${config.color}`} />
           <h1 className={`text-3xl font-bold ${config.color}`}>{riskLabel(result.riskLevel)}</h1>
+          {result.isGpai && (
+            <span className="mt-2 inline-block rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-semibold px-3 py-1">
+              {result.gpaiSystemicRisk ? "GPAI — Riesgo Sistémico (Art. 51-55)" : "GPAI — IA de Propósito General (Art. 51-53)"}
+            </span>
+          )}
           <p className={`mt-2 text-lg ${config.color} opacity-80`}>{result.summary}</p>
           <div className="mt-4 flex items-center justify-center gap-2">
             <span className="text-sm font-medium text-text-secondary">{i("cls.riskScore")}</span>

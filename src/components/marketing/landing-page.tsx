@@ -246,6 +246,12 @@ export default function HomePage() {
             >
               {i("nav.about")}
             </Link>
+            <Link
+              href="/ai-act-explorer"
+              className="hover:text-brand-500 transition-colors"
+            >
+              AI Act Explorer
+            </Link>
           </div>
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
@@ -336,6 +342,13 @@ export default function HomePage() {
               className="block text-sm text-text-secondary hover:text-text transition py-2"
             >
               {i("nav.about")}
+            </Link>
+            <Link
+              href="/ai-act-explorer"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block text-sm text-text-secondary hover:text-text transition py-2"
+            >
+              AI Act Explorer
             </Link>
             <div className="pt-2 border-t border-border space-y-2">
               <Link

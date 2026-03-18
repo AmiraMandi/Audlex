@@ -52,6 +52,7 @@ export function Footer({ maxWidth = "max-w-6xl" }: FooterProps) {
             <Link href="/blog" className="hover:text-text transition">{i("footer.blog")}</Link>
             <Link href="/trust" className="hover:text-text transition">{i("footer.trustCenter")}</Link>
             <Link href="/sobre-nosotros" className="hover:text-text transition">{i("footer.aboutUs")}</Link>
+            <Link href="/ai-act-explorer" className="hover:text-text transition">{i("footer.aiActExplorer")}</Link>
             <Link href="/legal/privacidad" className="hover:text-text transition">{i("footer.privacy")}</Link>
             <Link href="/legal/terminos" className="hover:text-text transition">{i("footer.terms")}</Link>
             <Link href="/legal/cookies" className="hover:text-text transition">{i("footer.cookies")}</Link>

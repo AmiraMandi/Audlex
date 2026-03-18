@@ -337,6 +337,7 @@ const publicTranslations: Record<Locale, Record<string, string>> = {
     /* ── Footer extras ─────────────────────────────────────── */
     "footer.aboutUs": "Sobre nosotros",
     "footer.trustCenter": "Trust Center",
+    "footer.aiActExplorer": "AI Act Explorer",
   },
 
   en: {
@@ -664,6 +665,7 @@ const publicTranslations: Record<Locale, Record<string, string>> = {
     /* ── Footer extras ─────────────────────────────────────── */
     "footer.aboutUs": "About us",
     "footer.trustCenter": "Trust Center",
+    "footer.aiActExplorer": "AI Act Explorer",
   },
 };
 

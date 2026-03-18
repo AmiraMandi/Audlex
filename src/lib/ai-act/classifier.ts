@@ -30,6 +30,9 @@ import {
   highRiskRecommendations,
   limitedRiskRecommendations,
   highRiskExplanation,
+  gpaiResultTexts,
+  gpaiObligationTexts,
+  gpaiRecommendations,
 } from "./classifier-i18n";
 
 export type { Locale };
@@ -66,6 +69,10 @@ export interface ClassificationResult {
   score: number;
   summary: string;
   detailedExplanation: string;
+  /** True if the system is or uses a General Purpose AI model (Art. 51-56) */
+  isGpai: boolean;
+  /** True if the GPAI model has systemic risk (>10^25 FLOPs or designated) */
+  gpaiSystemicRisk: boolean;
 }
 
 export interface Obligation {
@@ -88,7 +95,8 @@ export type ObligationCategory =
   | "post_market_monitoring"
   | "registration"
   | "conformity_assessment"
-  | "ai_literacy";
+  | "ai_literacy"
+  | "gpai_compliance";
 
 // ============================================================
 // BASE QUESTION STRUCTURE (language-independent)
@@ -128,6 +136,10 @@ const baseQuestions: BaseQuestion[] = [
   { id: "interacts_with_humans", type: "boolean", articleReference: "Art. 50.1", weight: 10 },
   { id: "generates_content", type: "boolean", articleReference: "Art. 50.2", weight: 10 },
   { id: "generates_deepfakes", type: "boolean", articleReference: "Art. 50.4", weight: 15 },
+  // --- GPAI questions (Art. 51-56) ---
+  { id: "is_gpai_model", type: "boolean", articleReference: "Art. 51", weight: 20 },
+  { id: "gpai_systemic_risk", type: "boolean", conditionalOn: { questionId: "is_gpai_model", value: true }, articleReference: "Art. 51.2", weight: 30 },
+  { id: "gpai_open_source", type: "boolean", conditionalOn: { questionId: "is_gpai_model", value: true }, articleReference: "Art. 53.2", weight: 5 },
 ];
 
 // ============================================================
@@ -176,6 +188,11 @@ export function classifyRisk(answers: ClassificationAnswer[], locale: Locale = "
   const answerMap = new Map<string, string | boolean | string[]>();
   answers.forEach((a) => answerMap.set(a.questionId, a.value));
 
+  // --- Detect GPAI (Art. 51-56) — orthogonal to risk level ---
+  const isGpai = answerMap.get("is_gpai_model") === true;
+  const gpaiSystemicRisk = isGpai && answerMap.get("gpai_systemic_risk") === true;
+  const gpaiOpenSource = isGpai && answerMap.get("gpai_open_source") === true;
+
   // --- Paso 1: Comprobar prácticas PROHIBIDAS (Art. 5) ---
   const prohibitionCheckIds = [
     "subliminal_manipulation",
@@ -204,6 +221,8 @@ export function classifyRisk(answers: ClassificationAnswer[], locale: Locale = "
       score: 100,
       summary: resultTexts.unacceptable.summary[locale],
       detailedExplanation: resultTexts.unacceptable.detailedExplanation[locale],
+      isGpai,
+      gpaiSystemicRisk,
     };
   }
 
@@ -241,7 +260,7 @@ export function classifyRisk(answers: ClassificationAnswer[], locale: Locale = "
 
   if (highRiskArticles.length > 0) {
     const articles = ["Art. 6", "Art. 9", "Art. 10", "Art. 11", "Art. 12", "Art. 13", "Art. 14", "Art. 15", "Art. 27", "Art. 47", "Art. 72", ...highRiskArticles];
-    return {
+    const result: ClassificationResult = {
       riskLevel: "high",
       isProhibited: false,
       prohibitionReasons: [],
@@ -251,12 +270,16 @@ export function classifyRisk(answers: ClassificationAnswer[], locale: Locale = "
       score: Math.min(60 + riskScore, 95),
       summary: resultTexts.high.summary[locale],
       detailedExplanation: generateHighRiskExplanationText(highRiskArticles, answerMap, locale),
+      isGpai,
+      gpaiSystemicRisk,
     };
+    if (isGpai) appendGpaiToResult(result, gpaiSystemicRisk, gpaiOpenSource, locale);
+    return result;
   }
 
   // Combinación de factores que podría elevar a alto riesgo
   if (riskScore >= 50 && !highRiskArticles.length) {
-    return {
+    const result: ClassificationResult = {
       riskLevel: "high",
       isProhibited: false,
       prohibitionReasons: [],
@@ -266,7 +289,11 @@ export function classifyRisk(answers: ClassificationAnswer[], locale: Locale = "
       score: riskScore + 20,
       summary: resultTexts.highByFactors.summary[locale],
       detailedExplanation: resultTexts.highByFactors.detailedExplanation[locale],
+      isGpai,
+      gpaiSystemicRisk,
     };
+    if (isGpai) appendGpaiToResult(result, gpaiSystemicRisk, gpaiOpenSource, locale);
+    return result;
   }
 
   // --- Paso 3: Comprobar RIESGO LIMITADO (Art. 50) ---
@@ -279,7 +306,7 @@ export function classifyRisk(answers: ClassificationAnswer[], locale: Locale = "
     const limitedObligations = getLimitedRiskObligations(answerMap, locale);
     const explanationMap = resultTexts.limited.detailedExplanation(interactsWithHumans, generatesContent, generatesDeepfakes);
 
-    return {
+    const result: ClassificationResult = {
       riskLevel: "limited",
       isProhibited: false,
       prohibitionReasons: [],
@@ -289,11 +316,15 @@ export function classifyRisk(answers: ClassificationAnswer[], locale: Locale = "
       score: 20 + (generatesDeepfakes ? 15 : 0) + (riskScore / 4),
       summary: resultTexts.limited.summary[locale],
       detailedExplanation: explanationMap[locale],
+      isGpai,
+      gpaiSystemicRisk,
     };
+    if (isGpai) appendGpaiToResult(result, gpaiSystemicRisk, gpaiOpenSource, locale);
+    return result;
   }
 
   // --- Paso 4: RIESGO MÍNIMO ---
-  return {
+  const minResult: ClassificationResult = {
     riskLevel: "minimal",
     isProhibited: false,
     prohibitionReasons: [],
@@ -303,7 +334,11 @@ export function classifyRisk(answers: ClassificationAnswer[], locale: Locale = "
     score: Math.max(5, riskScore / 5),
     summary: resultTexts.minimal.summary[locale],
     detailedExplanation: resultTexts.minimal.detailedExplanation[locale],
+    isGpai,
+    gpaiSystemicRisk,
   };
+  if (isGpai) appendGpaiToResult(minResult, gpaiSystemicRisk, gpaiOpenSource, locale);
+  return minResult;
 }
 
 // ============================================================
@@ -514,6 +549,123 @@ function getMinimalRiskObligations(locale: Locale): Obligation[] {
       priority: "low",
     },
   ];
+}
+
+// ============================================================
+// GPAI — IA DE PROPÓSITO GENERAL (Art. 51-56)
+// ============================================================
+
+function appendGpaiToResult(
+  result: ClassificationResult,
+  systemicRisk: boolean,
+  openSource: boolean,
+  locale: Locale
+): void {
+  // Add GPAI articles
+  result.applicableArticles.push("Art. 51", "Art. 53");
+  if (systemicRisk) result.applicableArticles.push("Art. 51.2", "Art. 55");
+
+  // Add GPAI obligations
+  result.obligations.push(...getGpaiObligations(systemicRisk, openSource, locale));
+
+  // Add GPAI recommendations
+  result.recommendations.push(...gpaiRecommendations.base[locale]);
+  if (systemicRisk) result.recommendations.push(...gpaiRecommendations.systemic[locale]);
+  if (openSource) result.recommendations.push(gpaiRecommendations.openSource[locale]);
+
+  // Enrich summary
+  const gpaiSuffix = systemicRisk
+    ? gpaiResultTexts.summarySystemic[locale]
+    : gpaiResultTexts.summary[locale];
+  result.summary += ` | ${gpaiSuffix}`;
+  result.detailedExplanation += "\n\n" + (systemicRisk
+    ? gpaiResultTexts.detailedExplanationSystemic[locale]
+    : gpaiResultTexts.detailedExplanation[locale]);
+}
+
+function getGpaiObligations(systemicRisk: boolean, openSource: boolean, locale: Locale): Obligation[] {
+  const o = gpaiObligationTexts;
+  const obligations: Obligation[] = [];
+
+  // All GPAI models: Technical documentation + copyright policy + transparency
+  if (!openSource) {
+    obligations.push({
+      article: "Art. 53.1(a)",
+      title: o.art53_technical_doc.title[locale],
+      description: o.art53_technical_doc.description[locale],
+      category: "gpai_compliance",
+      deadline: o.art53_technical_doc.deadline[locale],
+      priority: "critical",
+    });
+  }
+
+  obligations.push({
+    article: "Art. 53.1(b)",
+    title: o.art53_copyright.title[locale],
+    description: o.art53_copyright.description[locale],
+    category: "gpai_compliance",
+    deadline: o.art53_copyright.deadline[locale],
+    priority: "high",
+  });
+
+  obligations.push({
+    article: "Art. 53.1(c)",
+    title: o.art53_training_content.title[locale],
+    description: o.art53_training_content.description[locale],
+    category: "gpai_compliance",
+    deadline: o.art53_training_content.deadline[locale],
+    priority: "high",
+  });
+
+  obligations.push({
+    article: "Art. 53.1(d)",
+    title: o.art53_downstream.title[locale],
+    description: o.art53_downstream.description[locale],
+    category: "gpai_compliance",
+    deadline: o.art53_downstream.deadline[locale],
+    priority: "high",
+  });
+
+  // Systemic risk GPAI: additional obligations (Art. 55)
+  if (systemicRisk) {
+    obligations.push({
+      article: "Art. 55.1(a)",
+      title: o.art55_model_evaluation.title[locale],
+      description: o.art55_model_evaluation.description[locale],
+      category: "gpai_compliance",
+      deadline: o.art55_model_evaluation.deadline[locale],
+      priority: "critical",
+    });
+
+    obligations.push({
+      article: "Art. 55.1(b)",
+      title: o.art55_risk_mitigation.title[locale],
+      description: o.art55_risk_mitigation.description[locale],
+      category: "gpai_compliance",
+      deadline: o.art55_risk_mitigation.deadline[locale],
+      priority: "critical",
+    });
+
+    obligations.push({
+      article: "Art. 55.1(c)",
+      title: o.art55_incident_reporting.title[locale],
+      description: o.art55_incident_reporting.description[locale],
+      category: "gpai_compliance",
+      deadline: o.art55_incident_reporting.deadline[locale],
+      priority: "critical",
+    });
+
+    obligations.push({
+      article: "Art. 55.1(d)",
+      title: o.art55_cybersecurity.title[locale],
+      description: o.art55_cybersecurity.description[locale],
+      category: "gpai_compliance",
+      deadline: o.art55_cybersecurity.deadline[locale],
+      priority: "high",
+    });
+  }
+
+  return obligations;
 }
 
 // ============================================================

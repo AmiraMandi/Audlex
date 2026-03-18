@@ -192,6 +192,8 @@ describe("classifier – result structure", () => {
     expect(result).toHaveProperty("score");
     expect(result).toHaveProperty("summary");
     expect(result).toHaveProperty("detailedExplanation");
+    expect(result).toHaveProperty("isGpai");
+    expect(result).toHaveProperty("gpaiSystemicRisk");
     expect(typeof result.score).toBe("number");
     expect(result.score).toBeGreaterThanOrEqual(0);
     expect(result.score).toBeLessThanOrEqual(100);
@@ -209,5 +211,89 @@ describe("classifier – result structure", () => {
 
     // The summary/explanation should differ by locale
     expect(es.summary).not.toEqual(en.summary);
+  });
+});
+
+describe("classifier – GPAI classification (Art. 51-56)", () => {
+  it("detects GPAI model and adds GPAI obligations", () => {
+    const answers: ClassificationAnswer[] = [
+      { questionId: "system_type", value: "chatbot" },
+      { questionId: "sector", value: "customer_service" },
+      { questionId: "subliminal_manipulation", value: false },
+      { questionId: "vulnerability_exploitation", value: false },
+      { questionId: "social_scoring", value: false },
+      { questionId: "realtime_biometric_public", value: false },
+      { questionId: "emotion_recognition_prohibited", value: false },
+      { questionId: "facial_scraping", value: false },
+      { questionId: "biometric_identification", value: false },
+      { questionId: "critical_infrastructure_safety", value: false },
+      { questionId: "education_access", value: false },
+      { questionId: "employment_decisions", value: false },
+      { questionId: "essential_services_access", value: false },
+      { questionId: "law_enforcement_use", value: false },
+      { questionId: "interacts_with_humans", value: true },
+      { questionId: "is_gpai_model", value: true },
+      { questionId: "gpai_systemic_risk", value: false },
+      { questionId: "gpai_open_source", value: false },
+    ];
+
+    const result = classifyRisk(answers, "es");
+    expect(result.isGpai).toBe(true);
+    expect(result.gpaiSystemicRisk).toBe(false);
+    expect(result.applicableArticles).toContain("Art. 53");
+    expect(result.obligations.some(o => o.category === "gpai_compliance")).toBe(true);
+  });
+
+  it("detects GPAI with systemic risk and adds Art. 55 obligations", () => {
+    const answers: ClassificationAnswer[] = [
+      { questionId: "system_type", value: "content_generation" },
+      { questionId: "sector", value: "technology" },
+      { questionId: "subliminal_manipulation", value: false },
+      { questionId: "vulnerability_exploitation", value: false },
+      { questionId: "social_scoring", value: false },
+      { questionId: "realtime_biometric_public", value: false },
+      { questionId: "emotion_recognition_prohibited", value: false },
+      { questionId: "facial_scraping", value: false },
+      { questionId: "biometric_identification", value: false },
+      { questionId: "is_gpai_model", value: true },
+      { questionId: "gpai_systemic_risk", value: true },
+      { questionId: "gpai_open_source", value: false },
+      { questionId: "generates_content", value: true },
+    ];
+
+    const result = classifyRisk(answers, "en");
+    expect(result.isGpai).toBe(true);
+    expect(result.gpaiSystemicRisk).toBe(true);
+    expect(result.applicableArticles).toContain("Art. 55");
+    expect(result.obligations.some(o => o.article.startsWith("Art. 55"))).toBe(true);
+  });
+
+  it("non-GPAI system has isGpai false", () => {
+    const answers: ClassificationAnswer[] = [
+      { questionId: "system_type", value: "chatbot" },
+      { questionId: "sector", value: "retail" },
+      { questionId: "subliminal_manipulation", value: false },
+      { questionId: "is_gpai_model", value: false },
+    ];
+
+    const result = classifyRisk(answers, "es");
+    expect(result.isGpai).toBe(false);
+    expect(result.gpaiSystemicRisk).toBe(false);
+  });
+
+  it("GPAI questions appear in question list", () => {
+    const questions = getClassificationQuestions("es");
+    const gpaiQuestion = questions.find(q => q.id === "is_gpai_model");
+    expect(gpaiQuestion).toBeDefined();
+    expect(gpaiQuestion!.type).toBe("boolean");
+  });
+
+  it("GPAI conditional questions are hidden when is_gpai_model is false", () => {
+    const answers: ClassificationAnswer[] = [
+      { questionId: "is_gpai_model", value: false },
+    ];
+    const visible = getVisibleQuestions(answers, "es");
+    expect(visible.find(q => q.id === "gpai_systemic_risk")).toBeUndefined();
+    expect(visible.find(q => q.id === "gpai_open_source")).toBeUndefined();
   });
 });
