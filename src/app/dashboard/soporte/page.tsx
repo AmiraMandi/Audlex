@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { HelpCircle, Send, Mail, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,13 +8,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useLocale } from "@/hooks/use-locale";
 import { td } from "@/lib/i18n/dashboard-translations";
+import { getConsultoraClientInfo } from "@/app/actions";
 
 export default function SoportePage() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [consultoraInfo, setConsultoraInfo] = useState<{ consultoraName: string; brandName: string | null } | null>(null);
   const { locale } = useLocale();
   const i = (key: string, r?: Record<string, string | number>) => td(locale, key, r);
+
+  useEffect(() => {
+    getConsultoraClientInfo().then(info => {
+      if (info) setConsultoraInfo(info);
+    }).catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -89,9 +97,17 @@ export default function SoportePage() {
             <Mail className="h-5 w-5 text-brand-500" />
             <div>
               <p className="text-sm font-medium text-text">{i("support.email")}</p>
-              <a href="mailto:info@audlex.com" className="text-sm text-brand-600 hover:text-brand-700">
-                info@audlex.com
-              </a>
+              {consultoraInfo ? (
+                <p className="text-sm text-text-secondary">
+                  {locale === "en"
+                    ? `Contact ${consultoraInfo.brandName || consultoraInfo.consultoraName} for support.`
+                    : `Contacta con ${consultoraInfo.brandName || consultoraInfo.consultoraName} para soporte.`}
+                </p>
+              ) : (
+                <a href="mailto:info@audlex.com" className="text-sm text-brand-600 hover:text-brand-700">
+                  info@audlex.com
+                </a>
+              )}
             </div>
           </div>
         </CardContent>

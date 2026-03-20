@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs } from "@/components/ui/tabs";
 import { Alert } from "@/components/ui/feedback";
 import { Modal } from "@/components/ui/modal";
-import { getCurrentOrganization, updateOrganization, getTeamMembers, inviteTeamMember, updateTeamMemberRole, removeTeamMember, exportUserData, deleteAccount, updateProfile, getAuditLog } from "@/app/actions";
+import { getCurrentOrganization, updateOrganization, getTeamMembers, inviteTeamMember, updateTeamMemberRole, removeTeamMember, exportUserData, deleteAccount, updateProfile, getAuditLog, getConsultoraClientInfo } from "@/app/actions";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -57,6 +57,7 @@ export default function ConfiguracionPage() {
   const [notifPrefs, setNotifPrefs] = useState({ email: true, deadlines: true, updates: false });
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [consultoraInfo, setConsultoraInfo] = useState<{ consultoraName: string; brandName: string | null } | null>(null);
   const [form, setForm] = useState({
     name: "",
     cifNif: "",
@@ -98,9 +99,10 @@ export default function ConfiguracionPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [data, members] = await Promise.all([
+        const [data, members, clientInfo] = await Promise.all([
           getCurrentOrganization(),
           getTeamMembers(),
+          getConsultoraClientInfo(),
         ]);
         if (data) {
           setOrg(data);
@@ -114,6 +116,7 @@ export default function ConfiguracionPage() {
           });
         }
         setTeamMembers(members || []);
+        setConsultoraInfo(clientInfo);
       } catch {
         // Not authenticated
       } finally {
@@ -451,7 +454,53 @@ export default function ConfiguracionPage() {
       )}
 
       {/* PLAN TAB */}
-      {activeTab === "plan" && (
+      {activeTab === "plan" && consultoraInfo && (
+        <div className="space-y-6 max-w-4xl">
+          <Card>
+            <CardHeader>
+              <CardTitle>{locale === "en" ? "Plan & Billing" : "Plan y facturación"}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-lg font-bold px-4 py-2 rounded-lg bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                  {locale === "en" ? "Managed Plan" : "Plan gestionado"}
+                </span>
+              </div>
+              <div className="rounded-lg border border-border bg-surface-tertiary p-5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Building2 className="h-5 w-5 text-text-muted" />
+                  <p className="text-sm text-text-secondary">
+                    {locale === "en"
+                      ? `Your plan and billing are managed by ${consultoraInfo.brandName || consultoraInfo.consultoraName}.`
+                      : `Tu plan y facturación son gestionados por ${consultoraInfo.brandName || consultoraInfo.consultoraName}.`}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="rounded-lg bg-surface p-3">
+                    <p className="text-text-muted">{i("cfg.aiSystems")}</p>
+                    <p className="text-lg font-bold text-text">
+                      {org?.maxAiSystems === -1 ? i("cfg.unlimited") : `${org?.maxAiSystems || 1}`}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-surface p-3">
+                    <p className="text-text-muted">{i("cfg.users")}</p>
+                    <p className="text-lg font-bold text-text">
+                      {org?.maxUsers === -1 ? i("cfg.unlimited") : `${org?.maxUsers || 1}`}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-text-muted">
+                  {locale === "en"
+                    ? `For billing questions, please contact ${consultoraInfo.brandName || consultoraInfo.consultoraName} directly.`
+                    : `Para cuestiones de facturación, contacta directamente con ${consultoraInfo.brandName || consultoraInfo.consultoraName}.`}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === "plan" && !consultoraInfo && (
         <div className="space-y-6 max-w-4xl">
           <Card>
             <CardHeader>
@@ -891,7 +940,8 @@ export default function ConfiguracionPage() {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = `audlex-export-${new Date().toISOString().slice(0, 10)}.json`;
+                    const exportPrefix = consultoraInfo?.brandName?.toLowerCase().replace(/\s+/g, "-") || "audlex";
+                    a.download = `${exportPrefix}-export-${new Date().toISOString().slice(0, 10)}.json`;
                     a.click();
                     URL.revokeObjectURL(url);
                     toast.success(i("cfg.exportSuccess"));

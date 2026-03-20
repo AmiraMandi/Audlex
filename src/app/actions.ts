@@ -2070,6 +2070,43 @@ export async function getApplicableBranding(): Promise<{
   }
 }
 
+/** Returns consultora info if the current org is a consultora's client */
+export async function getConsultoraClientInfo(): Promise<{
+  consultoraName: string;
+  brandName: string | null;
+} | null> {
+  try {
+    const user = await getCurrentUser();
+
+    const [clientLink] = await db
+      .select({ consultoraOrgId: consultoraClients.consultoraOrgId })
+      .from(consultoraClients)
+      .where(eq(consultoraClients.clientOrgId, user.organizationId))
+      .limit(1);
+
+    if (!clientLink) return null;
+
+    const [consultoraOrg] = await db
+      .select({ name: organizations.name })
+      .from(organizations)
+      .where(eq(organizations.id, clientLink.consultoraOrgId))
+      .limit(1);
+
+    const [config] = await db
+      .select({ brandName: whitelabelConfig.brandName })
+      .from(whitelabelConfig)
+      .where(eq(whitelabelConfig.organizationId, clientLink.consultoraOrgId))
+      .limit(1);
+
+    return {
+      consultoraName: consultoraOrg?.name || "Consultora",
+      brandName: config?.brandName || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function getWhitelabelConfig() {
   const user = await getCurrentUser();
   const [org] = await db.select().from(organizations).where(eq(organizations.id, user.organizationId)).limit(1);

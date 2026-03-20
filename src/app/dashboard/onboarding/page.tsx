@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useLocale } from "@/hooks/use-locale";
 import { td } from "@/lib/i18n/dashboard-translations";
+import { getApplicableBranding } from "@/app/actions";
 
 const STEP_ICONS = [Building2, Cpu, CheckCircle2];
 
@@ -45,6 +46,7 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [isConsultora, setIsConsultora] = useState(false);
+  const [branding, setBranding] = useState<{ brandName: string; logoUrl: string | null; primaryColor: string } | null>(null);
 
   useEffect(() => {
     const checkTheme = () => {
@@ -59,7 +61,7 @@ export default function OnboardingPage() {
     return () => observer.disconnect();
   }, []);
 
-  // Detect if org is consultora plan
+  // Detect if org is consultora plan + load branding
   useEffect(() => {
     async function checkPlan() {
       try {
@@ -70,7 +72,14 @@ export default function OnboardingPage() {
         }
       } catch {}
     }
+    async function loadBranding() {
+      try {
+        const b = await getApplicableBranding();
+        if (b) setBranding(b);
+      } catch {}
+    }
     checkPlan();
+    loadBranding();
   }, []);
 
   const { locale } = useLocale();
@@ -134,13 +143,34 @@ export default function OnboardingPage() {
       <div className="border-b border-border bg-surface-secondary px-6 py-4">
         <div className="mx-auto max-w-2xl flex items-center justify-between">
           <div className="relative h-8 w-auto">
-            <Image
-              src={isDark ? "/logo-white.svg" : "/logo.svg"}
-              alt="Audlex Logo"
-              width={130}
-              height={32}
-              className="h-8 w-auto object-contain"
-            />
+            {branding?.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={branding.logoUrl}
+                alt={branding.brandName}
+                className="h-8 w-auto object-contain"
+              />
+            ) : branding?.brandName ? (
+              <div className="flex items-center gap-2">
+                <div
+                  className="h-8 w-8 rounded-lg flex items-center justify-center text-white text-sm font-bold"
+                  style={{ backgroundColor: branding.primaryColor }}
+                >
+                  {branding.brandName[0]?.toUpperCase()}
+                </div>
+                <span className="text-base font-semibold" style={{ color: branding.primaryColor }}>
+                  {branding.brandName}
+                </span>
+              </div>
+            ) : (
+              <Image
+                src={isDark ? "/logo-white.svg" : "/logo.svg"}
+                alt="Audlex Logo"
+                width={130}
+                height={32}
+                className="h-8 w-auto object-contain"
+              />
+            )}
           </div>
           <button
             onClick={async () => {
